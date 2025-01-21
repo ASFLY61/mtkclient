@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# (c) B.Kerler 2018-2023 GPLv3 License
+# (c) B.Kerler 2018-2024 GPLv3 License
 
 import hashlib
 from Cryptodome.Cipher import AES
@@ -72,11 +72,12 @@ class InvalidTagException(Exception):
         return 'The authentication tag is invalid.'
 
 
-class cryptutils:
-    class aes:
+class CryptUtils:
+    class Aes:
         # GF(2^128) defined by 1 + a + a^2 + a^7 + a^128
         # Please note the MSB is x0 and LSB is x127
-        def gf_2_128_mul(self, x, y):
+        @staticmethod
+        def gf_2_128_mul(x, y):
             assert x < (1 << 128)
             assert y < (1 << 128)
             res = 0
@@ -86,9 +87,9 @@ class cryptutils:
             assert res < 1 << 128
             return res
 
-        class AES_GCM:
+        class AesGcm:
             # Galois/Counter Mode with AES-128 and 96-bit IV
-            '''
+            """
             Example:
             master_key = 0x0ADAABC70895E008147A48C27791F654 #54F69177C2487A1408E09508C7ABDA0A
             init_value = 0x2883B4173F9A838437C1CD86CCFAA5ED #EDA5FACC86CDC13784839A3F17B48328
@@ -122,7 +123,7 @@ class cryptutils:
                         b"\xA0\x62\x9E\xF9\xF4\xE7\xE8\x65"
             my_gcm = AES_GCM(master_key)
             decrypted = my_gcm.decrypt(init_value, ciphertext, auth_tag)
-            '''
+            """
 
             def __init__(self, master_key):
                 self.change_key(master_key)
@@ -248,50 +249,51 @@ class cryptutils:
 
                 return plaintext
 
-        def aes_gcm(self, input, nounce, aes_key, hdr, tag_auth, decrypt=True):
+        @staticmethod
+        def aes_gcm(indata, nounce, aes_key, hdr, tag_auth, decrypt=True):
             cipher = AES.new(aes_key, AES.MODE_GCM, nounce)
             if hdr is not None:
                 cipher.update(hdr)
             if decrypt:
                 if tag_auth is None:
-                    plaintext = cipher.decrypt(input)
+                    plaintext = cipher.decrypt(indata)
                     return plaintext
                 elif tag_auth is not None:
-                    plaintext = cipher.decrypt(input)
+                    plaintext = cipher.decrypt(indata)
                     cipher.verify(tag_auth)
                     return plaintext
             elif not decrypt:
                 if tag_auth is None:
-                    ciphertext = cipher.encrypt(input)
+                    ciphertext = cipher.encrypt(indata)
                     return ciphertext
                 elif tag_auth is not None:
-                    ciphertext, tag_auth = cipher.encrypt_and_digest(input)
+                    ciphertext, tag_auth = cipher.encrypt_and_digest(indata)
                     return ciphertext, tag_auth
 
-        def aes_cbc(self, key, iv, data, decrypt=True):
+        @staticmethod
+        def aes_cbc(key, iv, data, decrypt=True):
             if decrypt:
                 return AES.new(key, AES.MODE_CBC, IV=iv).decrypt(data)
             else:
                 return AES.new(key, AES.MODE_CBC, IV=iv).encrypt(data)
 
-        def aes_ecb(self, key, data, decrypt=True):
+        @staticmethod
+        def aes_ecb(key, data, decrypt=True):
             if decrypt:
                 return AES.new(key, AES.MODE_ECB).decrypt(data)
             else:
                 return AES.new(key, AES.MODE_ECB).encrypt(data)
 
-        def aes_ctr(self, key, counter, enc_data, decrypt=True):
+        @staticmethod
+        def aes_ctr(key, counter, enc_data, decrypt=True):
             ctr = Counter.new(128, initial_value=counter)
             # Create the AES cipher object and decrypt the ciphertext, basically this here is just aes ctr 256 :)
             cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
-            data = b""
-            if decrypt:
-                data = cipher.decrypt(enc_data)
-            else:
-                data = cipher.encrypt(enc_data)
+            data = cipher.decrypt(enc_data) if decrypt else cipher.encrypt(enc_data)
             return data
 
-        def aes_ccm(self, key, nounce, tag_auth, data, decrypt=True):
+        @staticmethod
+        def aes_ccm(key, nounce, tag_auth, data, decrypt=True):
             cipher = AES.new(key, AES.MODE_CCM, nounce)
             if decrypt:
                 plaintext = cipher.decrypt(data)
@@ -304,6 +306,7 @@ class cryptutils:
                 ciphertext = cipher.encrypt(data)
                 return ciphertext
 
+        @staticmethod
         def aes_cmac_verify(key, plain, compare):
             ctx = CMAC.new(key, ciphermod=AES)
             ctx.update(plain)
@@ -313,7 +316,7 @@ class cryptutils:
             else:
                 print("AES-CMAC ok !")
 
-    class rsa:  # RFC8017
+    class Rsa:  # RFC8017
         def __init__(self, hashtype="SHA256"):
             if hashtype == "SHA1":
                 self.hash = self.sha1
@@ -323,30 +326,37 @@ class cryptutils:
                 self.digestLen = 0x20
 
         def pss_test(self):
-            N = "a2ba40ee07e3b2bd2f02ce227f36a195024486e49c19cb41bbbdfbba98b22b0e577c2eeaffa20d883a76e65e394c69d4b3c05a1e8fadda27edb2a42bc000fe888b9b32c22d15add0cd76b3e7936e19955b220dd17d4ea904b1ec102b2e4de7751222aa99151024c7cb41cc5ea21d00eeb41f7c800834d2c6e06bce3bce7ea9a5"
+            n = "a2ba40ee07e3b2bd2f02ce227f36a195024486e49c19cb41bbbdfbba98b22b0e577c2eeaffa20d883a76e65" + \
+                "e394c69d4b3c05a1e8fadda27edb2a42bc000fe888b9b32c22d15add0cd76b3e7936e19955b220dd17d4ea9" + \
+                "04b1ec102b2e4de7751222aa99151024c7cb41cc5ea21d00eeb41f7c800834d2c6e06bce3bce7ea9a5"
             e = "010001"
-            D = "050e2c3e38d886110288dfc68a9533e7e12e27d2aa56d2cdb3fb6efa990bcff29e1d2987fb711962860e7391b1ce01ebadb9e812d2fbdfaf25df4ae26110a6d7a26f0b810f54875e17dd5c9fb6d641761245b81e79f8c88f0e55a6dcd5f133abd35f8f4ec80adf1bf86277a582894cb6ebcd2162f1c7534f1f4947b129151b71"
-            MSG = "859eef2fd78aca00308bdc471193bf55bf9d78db8f8a672b484634f3c9c26e6478ae10260fe0dd8c082e53a5293af2173cd50c6d5d354febf78b26021c25c02712e78cd4694c9f469777e451e7f8e9e04cd3739c6bbfedae487fb55644e9ca74ff77a53cb729802f6ed4a5ffa8ba159890fc"
+            d = "050e2c3e38d886110288dfc68a9533e7e12e27d2aa56d2cdb3fb6efa990bcff29e1d2987fb711962860e739" + \
+                "1b1ce01ebadb9e812d2fbdfaf25df4ae26110a6d7a26f0b810f54875e17dd5c9fb6d641761245b81e79f8c8" + \
+                "8f0e55a6dcd5f133abd35f8f4ec80adf1bf86277a582894cb6ebcd2162f1c7534f1f4947b129151b71"
+            msg = "859eef2fd78aca00308bdc471193bf55bf9d78db8f8a672b484634f3c9c26e6478ae10260fe0dd8c082e5" + \
+                  "3a5293af2173cd50c6d5d354febf78b26021c25c02712e78cd4694c9f469777e451e7f8e9e04cd3739c6b" + \
+                  "bfedae487fb55644e9ca74ff77a53cb729802f6ed4a5ffa8ba159890fc"
             salt = "e3b5d5d002c1bce50c2b65ef88a188d83bce7e61"
 
-            N = int(N, 16)
+            n = int(n, 16)
             e = int(e, 16)
-            D = int(D, 16)
-            MSG = bytes.fromhex(MSG)
+            d = int(d, 16)
+            msg = bytes.fromhex(msg)
             salt = bytes.fromhex(salt)
-            signature = self.pss_sign(D, N, self.hash(MSG), salt, 1024)  # pkcs_1_pss_encode_sha256
-            isvalid = self.pss_verify(e, N, self.hash(MSG), signature, 1024)
+            signature = self.pss_sign(d, n, self.hash(msg), salt, 1024)  # pkcs_1_pss_encode_sha256
+            isvalid = self.pss_verify(e, n, self.hash(msg), signature, 1024)
             if isvalid:
                 print("Test passed.")
             else:
                 print("Test failed.")
 
-        def i2osp(self, x, x_len):
-            '''Converts the integer x to its big-endian representation of length
+        @staticmethod
+        def i2osp(x, x_len):
+            """Converts the integer x to its big-endian representation of length
                x_len.
-            '''
+            """
             if x > 256 ** x_len:
-                raise ("Integer Too Large")
+                raise "Integer Too Large"
             h = hex(x)[2:]
             if h[-1] == 'L':
                 h = h[:-1]
@@ -355,143 +365,138 @@ class cryptutils:
             x = bytes.fromhex(h)
             return b'\x00' * int(x_len - len(x)) + x
 
-        def os2ip(self, x):
-            '''Converts the byte string x representing an integer reprented using the
+        @staticmethod
+        def os2ip(x):
+            """Converts the byte string x representing an integer reprented using the
                big-endian convient to an integer.
-            '''
-            h = hexlify(x)
-            return int(h, 16)
+            """
+            return int(hexlify(x), 16)
 
         # def os2ip(self, X):
         #    return int.from_bytes(X, byteorder='big')
 
-        def mgf1(self, input, length):
+        def mgf1(self, indata, length):
             counter = 0
             output = b''
-            while (len(output) < length):
-                C = self.i2osp(counter, 4)
-                output += self.hash(input + C)
+            while len(output) < length:
+                c = self.i2osp(counter, 4)
+                output += self.hash(indata + c)
                 counter += 1
             return output[:length]
 
-        def assert_int(self, var: int, name: str):
+        @staticmethod
+        def assert_int(var: int, name: str):
             if isinstance(var, int):
                 return
             raise TypeError('%s should be an integer, not %s' % (name, var.__class__))
 
-        def sign(self, tosign, D, N, emBits=1024):
+        def sign(self, tosign, d, n, em_bits=1024):
             self.assert_int(tosign, 'message')
-            self.assert_int(D, 'D')
-            self.assert_int(N, 'n')
+            self.assert_int(d, 'D')
+            self.assert_int(n, 'n')
 
             if tosign < 0:
                 raise ValueError('Only non-negative numbers are supported')
 
-            if tosign > N:
-                tosign1 = divmod(tosign, N)[1]
-                signature = pow(tosign1, D, N)
-                raise OverflowError("The message %i is too long for n=%i" % (tosign, N))
+            if tosign > n:
+                raise OverflowError("The message %i is too long for n=%i" % (tosign, n))
 
-            signature = pow(tosign, D, N)
-            hexsign = self.i2osp(signature, emBits // 8)
+            signature = pow(tosign, d, n)
+            hexsign = self.i2osp(signature, em_bits // 8)
             return hexsign
 
-        def pss_sign(self, D, N, msghash, salt, emBits=1024):
-            if isinstance(D, str):
-                D = bytes.fromhex(D)
-                D = self.os2ip(D)
-            if isinstance(N, str):
-                N = bytes.fromhex(N)
-                N = self.os2ip(N)
+        def pss_sign(self, d, n, msghash, salt, em_bits=1024):
+            if isinstance(d, str):
+                d = bytes.fromhex(d)
+                d = self.os2ip(d)
+            if isinstance(n, str):
+                n = bytes.fromhex(n)
+                n = self.os2ip(n)
             slen = len(salt)
-            emLen = self.ceil_div(emBits, 8)
-            inBlock = b"\x00" * 8 + msghash + salt
-            hash = self.hash(inBlock)
-            PSlen = emLen - self.digestLen - slen - 1 - 1
-            DB = (PSlen * b"\x00") + b"\x01" + salt
-            rlen = emLen - len(hash) - 1
-            dbMask = self.mgf1(hash, rlen)
-            maskedDB = bytearray()
-            for i in range(0, len(dbMask)):
-                maskedDB.append(dbMask[i] ^ DB[i])
-            maskedDB[0] = maskedDB[0] & 0x7F
-            EM = maskedDB + hash + b"\xbc"
-            tosign = self.os2ip(EM)
+            em_len = self.ceil_div(em_bits, 8)
+            in_block = b"\x00" * 8 + msghash + salt
+            _hash = self.hash(in_block)
+            ps_len = em_len - self.digestLen - slen - 1 - 1
+            db = (ps_len * b"\x00") + b"\x01" + salt
+            rlen = em_len - len(_hash) - 1
+            db_mask = self.mgf1(_hash, rlen)
+            masked_db = bytearray()
+            for i in range(0, len(db_mask)):
+                masked_db.append(db_mask[i] ^ db[i])
+            masked_db[0] = masked_db[0] & 0x7F
+            em = masked_db + _hash + b"\xbc"
+            tosign = self.os2ip(em)
             # EM=hexlify(EM).decode('utf-8')
             # tosign = int(EM,16)
-            return self.sign(tosign, D, N, emBits)
+            return self.sign(tosign, d, n, em_bits)
             # 6B1EAA2042A5C8DA8B1B4A8320111A70A0CBA65233D1C6E418EF8156E82A8F96BD843F047FF25AB9702A6582C8387298753E628F23448B4580E09CBD2A483C623B888F47C4BD2C5EFF09013C6DFF67DB59BAB3037F0BEE05D5660264D28CC6251631FE75CE106D931A04FA032FEA31259715CE0FAB1AE0E2F8130807AF4019A61B9C060ECE59104F22156FEE8108F17DC80D7C2F8397AFB9780994F7C5A0652F93D1B48010B0B248AB9711235787D797FBA4D10A29BCF09628585D405640A866B15EE9D7526A2703E72A19811EF447F6E5C43F915B3808EBC79EA4BCF78903DBDE32E47E239CFB5F2B5986D0CBBFBE6BACDC29B2ADE006D23D0B90775B1AE4DD
 
-        def ceil_div(self, a, b):
+        @staticmethod
+        def ceil_div(a, b):
             (q, r) = divmod(a, b)
             if r:
                 return q + 1
             else:
                 return q
 
-        def pss_verify(self, e, N, msghash, signature, emBits=1024, salt=None):
-            if salt == None:
+        def pss_verify(self, e, n, msghash, signature, em_bits=1024, salt=None):
+            if salt is None:
                 slen = self.digestLen
             else:
                 slen = len(salt)
             sig = self.os2ip(signature)
 
-            EM = pow(sig, e, N)
+            em = pow(sig, e, n)
             # EM = bytes.fromhex(hex(EM)[2:])
-            EM = self.i2osp(EM, emBits // 8)
+            em = self.i2osp(em, em_bits // 8)
 
-            emLen = len(signature)
+            em_len = len(signature)
 
-            valBC = EM[-1]
-            if valBC != 0xbc:
-                print("[rsa_pss] : 0xbc check failed, value: 0x%02X" % valBC)
+            val_bc = em[-1]
+            if val_bc != 0xbc:
+                print("[rsa_pss] : 0xbc check failed, value: 0x%02X" % val_bc)
                 return False
-            hash = EM[emLen - self.digestLen - 1:-1]
-            maskedDB = EM[:emLen - self.digestLen - 1]
+            _hash = em[em_len - self.digestLen - 1:-1]
+            masked_db = em[:em_len - self.digestLen - 1]
 
-            lmask = ~(0xFF >> (8 * emLen + 1 - emBits))
-            if EM[0] & lmask:
+            lmask = ~(0xFF >> (8 * em_len + 1 - em_bits))
+            if em[0] & lmask:
                 print("[rsa_pss] : lmask check failed")
                 return False
 
-            dbMask = self.mgf1(hash, emLen - self.digestLen - 1)
+            db_mask = self.mgf1(_hash, em_len - self.digestLen - 1)
 
-            DB = bytearray()
-            for i in range(0, len(dbMask)):
-                DB.append(dbMask[i] ^ maskedDB[i])
+            db = bytearray()
+            for i in range(0, len(db_mask)):
+                db.append(db_mask[i] ^ masked_db[i])
 
-            TS = bytearray()
-            TS.append(DB[0] & ~lmask)
-            TS.extend(DB[1:])
+            ts = bytearray()
+            ts.append(db[0] & ~lmask)
+            ts.extend(db[1:])
 
-            PS = (b"\x00" * (emLen - self.digestLen - slen - 2)) + b"\x01"
-            if TS[:len(PS)] != PS:
-                print(TS[:len(PS)])
-                print(PS)
+            ps = (b"\x00" * (em_len - self.digestLen - slen - 2)) + b"\x01"
+            if ts[:len(ps)] != ps:
+                print(ts[:len(ps)])
+                print(ps)
                 print("[rsa_pss] : 0x01 check failed")
                 return False
 
-            if salt != None:
-                inBlock = b"\x00" * 8 + msghash + salt
-                mhash = self.hash(inBlock)
-                if mhash == hash:
-                    return True
-                else:
-                    return False
+            if salt is not None:
+                in_block = b"\x00" * 8 + msghash + salt
+                mhash = self.hash(in_block)
+                return mhash == _hash
             else:
-                salt = TS[-self.digestLen:]
-                inBlock = b"\x00" * 8 + msghash + salt
-                mhash = self.hash(inBlock)
-                if mhash == hash:
-                    return True
-                else:
-                    return False
-            return maskedDB
+                salt = ts[-self.digestLen:]
+                in_block = b"\x00" * 8 + msghash + salt
+                mhash = self.hash(in_block)
+                return mhash == _hash
 
-        def sha1(self, msg):
+        @staticmethod
+        def sha1(msg):
             return hashlib.sha1(msg).digest()
 
-        def sha256(self, msg):
+        @staticmethod
+        def sha256(msg):
             return hashlib.sha256(msg).digest()
 
 
@@ -501,7 +506,7 @@ def hmac_sha256(key, msg):
 
 def aes_gcm(ciphertext, nounce, aes_key, hdr, tag_auth, decrypt=True):
     cipher = AES.new(aes_key, AES.MODE_GCM, nounce)
-    if hdr != None:
+    if hdr is not None:
         cipher.update(hdr)
     if decrypt:
         plaintext = cipher.decrypt(ciphertext)

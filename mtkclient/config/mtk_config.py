@@ -3,26 +3,31 @@ import sys
 import logging
 from binascii import hexlify
 from mtkclient.Library.utils import LogBase
-from mtkclient.Library.settings import hwparam
-from mtkclient.config.brom_config import chipconfig, damodes, hwconfig
+from mtkclient.Library.settings import HwParam
+from mtkclient.config.brom_config import Chipconfig, DAmodes, hwconfig
+
 try:
     from PySide6.QtCore import QObject
 except ImportError:
-    class QObject():
+    class QObject:
         def tr(self, arg):
             return
     pass
 
-class Mtk_Config(metaclass=LogBase):
+
+class MtkConfig(metaclass=LogBase):
     def __init__(self, loglevel=logging.INFO, gui=None, guiprogress=None, update_status_text=None):
         self.peek = None
         self.gui = gui
+        self.loglevel = loglevel
         self.guiprogress = guiprogress
         self.update_status_text = update_status_text
         self.pid = -1
         self.cid = None
         self.vid = -1
         self.var1 = 0xA
+        self.auth = None
+        self.cert = None
         self.is_brom = False
         self.skipwdt = False
         self.interface = -1
@@ -36,10 +41,7 @@ class Mtk_Config(metaclass=LogBase):
         self.iot = False
         self.gpt_file = None
         self.tr = QObject().tr
-        if sys.platform.startswith('darwin'):
-            self.ptype = "kamakiri"
-        else:
-            self.ptype = "kamakiri2"
+        self.ptype = "kamakiri2"
         self.generatekeys = None
         self.daconfig = None
         self.bmtflag = None
@@ -60,13 +62,14 @@ class Mtk_Config(metaclass=LogBase):
         self.meid = None
         self.socid = None
         self.target_config = None
-        self.chipconfig = chipconfig()
+        self.chipconfig = Chipconfig()
         self.gpt_settings = None
         self.hwparam = None
-        self.hwparam_path = "logs"
+        self.hwparam_path = "."
         self.sram = None
         self.dram = None
         self.otp = None
+        self.stock = False
         if loglevel == logging.DEBUG:
             logfilename = os.path.join("logs", "log.txt")
             fh = logging.FileHandler(logfilename)
@@ -74,6 +77,10 @@ class Mtk_Config(metaclass=LogBase):
             self.__logger.setLevel(logging.DEBUG)
         else:
             self.__logger.setLevel(logging.INFO)
+        self.reconnect = True
+        self.uartloglevel = 2
+        self.hwver = 0xca00
+        self.swver = 0
 
     def set_peek(self, peek):
         self.peek = peek
@@ -98,14 +105,13 @@ class Mtk_Config(metaclass=LogBase):
         return self.cid
 
     def set_cid(self, cid):
-        self.hwparam.writesetting("cid",cid.hex())
+        self.hwparam.writesetting("cid", cid.hex())
         self.cid = cid.hex()
 
-    def set_hwcode(self,hwcode):
+    def set_hwcode(self, hwcode):
         self.hwparam.writesetting("hwcode", hex(hwcode))
 
-    def set_meid(self,meid):
-        self.hwparam = hwparam(meid, self.hwparam_path)
+    def set_meid(self, meid):
         self.meid = meid
         self.hwparam.writesetting("meid", hexlify(meid).decode('utf-8'))
 
@@ -116,14 +122,14 @@ class Mtk_Config(metaclass=LogBase):
             idx = self.preloader.find(b"\x4D\x4D\x4D\x01\x30")
             if idx != -1:
                 self.otp = self.preloader[idx + 0xC:idx + 0xC + 32]
-                self.hwparam.writesetting("otp",hexlify(self.otp).decode('utf-8'))
+                self.hwparam.writesetting("otp", hexlify(self.otp).decode('utf-8'))
         if self.otp is None:
             self.otp = 32 * b"\x00"
         return self.otp
 
-    def set_otp(self,otp):
+    def set_otp(self, otp):
         self.otp = otp
-        self.hwparam.writesetting("otp",hexlify(otp).decode('utf-8'))
+        self.hwparam.writesetting("otp", hexlify(otp).decode('utf-8'))
 
     def get_meid(self):
         if self.meid is None:
@@ -131,12 +137,12 @@ class Mtk_Config(metaclass=LogBase):
                 if self.chipconfig.meid_addr is not None:
                     self.meid = self.peek(self.chipconfig.meid_addr, 0x10)
                 self.meid = self.peek(0x1008ec, 0x10)
-                #self.set_meid(self.meid)
+                # self.set_meid(self.meid)
         return self.meid
 
-    def set_socid(self,socid):
+    def set_socid(self, socid):
         self.socid = socid
-        self.hwparam.writesetting("socid",hexlify(socid).decode('utf-8'))
+        self.hwparam.writesetting("socid", hexlify(socid).decode('utf-8'))
 
     def get_socid(self):
         if self.socid is None:
@@ -172,7 +178,7 @@ class Mtk_Config(metaclass=LogBase):
         if self.chipconfig.ap_dma_mem is None:
             self.chipconfig.ap_dma_mem = 0x11000000 + 0x1A0
         if self.chipconfig.damode is None:
-            self.chipconfig.damode = damodes.LEGACY
+            self.chipconfig.damode = DAmodes.LEGACY
         if self.chipconfig.dxcc_base is None:
             self.chipconfig.dxcc_base = None
         if self.chipconfig.meid_addr is None:
@@ -187,7 +193,7 @@ class Mtk_Config(metaclass=LogBase):
         if hwcode in hwconfig:
             self.chipconfig = hwconfig[hwcode]
         else:
-            self.chipconfig = chipconfig()
+            self.chipconfig = Chipconfig()
         self.default_values(hwcode)
 
     def get_watchdog_addr(self):
@@ -203,6 +209,8 @@ class Mtk_Config(metaclass=LogBase):
                 return [wdt, 0x22000000]
             elif wdt == 0xC0000000:
                 return [wdt, 0x2264]
+            elif wdt == 0xA0030000:
+                return [wdt, 0x2200]
             elif wdt == 0x2200:
                 if self.hwcode == 0x6276 or self.hwcode == 0x8163:
                     return [wdt, 0x610C0000]
@@ -224,7 +232,8 @@ class Mtk_Config(metaclass=LogBase):
                 bmtflag = 1
                 bmtblockcount = 0xA8
                 bmtpartsize = 0x1500000
-        elif hwcode in [0x6570, 0x8167, 0x6580, 0x6735, 0x6753, 0x6755, 0x6752, 0x6595, 0x6795, 0x6767, 0x6797, 0x8163, 0x8127]:
+        elif hwcode in [0x6570, 0x8167, 0x6580, 0x6735, 0x6753, 0x6755, 0x6752, 0x6595, 0x6795, 0x6767, 0x6797, 0x8163,
+                        0x8127]:
             bmtflag = 1
             bmtpartsize = 0
         elif hwcode in [0x6571]:
@@ -252,8 +261,8 @@ class Mtk_Config(metaclass=LogBase):
         elif hwcode in [0x6572]:
             if self.daconfig.flashtype == "nand":
                 bmtflag = 0
-                bmtpartsize = 0xA00000
-                bmtblockcount = 0x50
+                bmtpartsize = 0x1500000
+                bmtblockcount = 0xA8
             elif self.daconfig.flashtype == "emmc":
                 bmtflag = 0
                 bmtpartsize = 0xA8

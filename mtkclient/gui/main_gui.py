@@ -1,19 +1,24 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'main_guiarqDOg.ui'
+## Form generated from reading UI file 'main_gui.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.4.0
+## Created by: Qt User Interface Compiler version 6.6.3
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QMetaObject, QRect,
-    QSize, Qt)
-from PySide6.QtGui import QAction, QPixmap
-from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QFrame,
-    QGridLayout, QHBoxLayout, QLabel,
-    QLayout, QMenu, QMenuBar,
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
+    QCursor, QFont, QFontDatabase, QGradient,
+    QIcon, QImage, QKeySequence, QLinearGradient,
+    QPainter, QPalette, QPixmap, QRadialGradient,
+    QTransform)
+from PySide6.QtWidgets import (QAbstractScrollArea, QApplication, QCheckBox, QFrame,
+    QGridLayout, QHBoxLayout, QHeaderView, QLabel,
+    QLayout, QMainWindow, QMenu, QMenuBar,
     QPlainTextEdit, QProgressBar, QPushButton, QScrollArea,
     QSizePolicy, QSpacerItem, QTabWidget, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget)
@@ -24,7 +29,7 @@ class Ui_MainWindow(object):
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.setWindowModality(Qt.NonModal)
         MainWindow.resize(746, 720)
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
@@ -86,33 +91,51 @@ class Ui_MainWindow(object):
         self.tabWidget.setAutoFillBackground(False)
         self.readtab = QWidget()
         self.readtab.setObjectName(u"readtab")
-        self.gridLayout_7 = QGridLayout(self.readtab)
-        self.gridLayout_7.setObjectName(u"gridLayout_7")
+        self.gridLayout_5 = QGridLayout(self.readtab)
+        self.gridLayout_5.setObjectName(u"gridLayout_5")
+        self.verticalLayout_8 = QVBoxLayout()
+        self.verticalLayout_8.setObjectName(u"verticalLayout_8")
+        self.horizontalLayout_6 = QHBoxLayout()
+        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
+        self.readselectallcheckbox = QCheckBox(self.readtab)
+        self.readselectallcheckbox.setObjectName(u"readselectallcheckbox")
+
+        self.horizontalLayout_6.addWidget(self.readselectallcheckbox)
+
         self.readDumpGPTCheckbox = QCheckBox(self.readtab)
         self.readDumpGPTCheckbox.setObjectName(u"readDumpGPTCheckbox")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.readDumpGPTCheckbox.sizePolicy().hasHeightForWidth())
+        self.readDumpGPTCheckbox.setSizePolicy(sizePolicy1)
 
-        self.gridLayout_7.addWidget(self.readDumpGPTCheckbox, 4, 1, 1, 1)
+        self.horizontalLayout_6.addWidget(self.readDumpGPTCheckbox)
+
+        self.horizontalSpacer_14 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_6.addItem(self.horizontalSpacer_14)
 
         self.readtitle = QLabel(self.readtab)
         self.readtitle.setObjectName(u"readtitle")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.readtitle.sizePolicy().hasHeightForWidth())
-        self.readtitle.setSizePolicy(sizePolicy1)
-        self.readtitle.setMinimumSize(QSize(0, 20))
-        self.readtitle.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignTop)
 
-        self.gridLayout_7.addWidget(self.readtitle, 0, 0, 1, 1)
+        self.horizontalLayout_6.addWidget(self.readtitle)
+
+        self.horizontalSpacer_9 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_6.addItem(self.horizontalSpacer_9)
 
         self.readpartitionsbtn = QPushButton(self.readtab)
         self.readpartitionsbtn.setObjectName(u"readpartitionsbtn")
 
-        self.gridLayout_7.addWidget(self.readpartitionsbtn, 0, 1, 1, 1)
+        self.horizontalLayout_6.addWidget(self.readpartitionsbtn)
+
+
+        self.verticalLayout_8.addLayout(self.horizontalLayout_6)
 
         self.readpartitionList = QScrollArea(self.readtab)
         self.readpartitionList.setObjectName(u"readpartitionList")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         sizePolicy2.setHorizontalStretch(0)
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.readpartitionList.sizePolicy().hasHeightForWidth())
@@ -124,37 +147,63 @@ class Ui_MainWindow(object):
         self.readpartitionList.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 600, 278))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 700, 311))
         self.readpartitionList.setWidget(self.scrollAreaWidgetContents)
 
-        self.gridLayout_7.addWidget(self.readpartitionList, 2, 0, 1, 1)
+        self.verticalLayout_8.addWidget(self.readpartitionList)
 
-        self.readselectallcheckbox = QCheckBox(self.readtab)
-        self.readselectallcheckbox.setObjectName(u"readselectallcheckbox")
 
-        self.gridLayout_7.addWidget(self.readselectallcheckbox, 1, 0, 1, 1)
+        self.gridLayout_5.addLayout(self.verticalLayout_8, 0, 0, 1, 1)
 
         self.tabWidget.addTab(self.readtab, "")
         self.writetab = QWidget()
         self.writetab.setObjectName(u"writetab")
         self.gridLayout_6 = QGridLayout(self.writetab)
         self.gridLayout_6.setObjectName(u"gridLayout_6")
+        self.verticalLayout_9 = QVBoxLayout()
+        self.verticalLayout_9.setObjectName(u"verticalLayout_9")
+        self.horizontalLayout_8 = QHBoxLayout()
+        self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
         self.writetitle = QLabel(self.writetab)
         self.writetitle.setObjectName(u"writetitle")
-        sizePolicy1.setHeightForWidth(self.writetitle.sizePolicy().hasHeightForWidth())
-        self.writetitle.setSizePolicy(sizePolicy1)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.writetitle.sizePolicy().hasHeightForWidth())
+        self.writetitle.setSizePolicy(sizePolicy3)
         self.writetitle.setMinimumSize(QSize(0, 20))
         self.writetitle.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignTop)
 
-        self.gridLayout_6.addWidget(self.writetitle, 0, 0, 1, 1)
+        self.horizontalLayout_8.addWidget(self.writetitle)
+
+        self.horizontalSpacer_10 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_8.addItem(self.horizontalSpacer_10)
+
+        self.writeselectfromdir = QPushButton(self.writetab)
+        self.writeselectfromdir.setObjectName(u"writeselectfromdir")
+
+        self.horizontalLayout_8.addWidget(self.writeselectfromdir)
+
+        self.horizontalSpacer_11 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_8.addItem(self.horizontalSpacer_11)
+
+        self.writepartbtn = QPushButton(self.writetab)
+        self.writepartbtn.setObjectName(u"writepartbtn")
+
+        self.horizontalLayout_8.addWidget(self.writepartbtn)
+
+
+        self.verticalLayout_9.addLayout(self.horizontalLayout_8)
 
         self.writepartitionList = QScrollArea(self.writetab)
         self.writepartitionList.setObjectName(u"writepartitionList")
-        sizePolicy3 = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.writepartitionList.sizePolicy().hasHeightForWidth())
-        self.writepartitionList.setSizePolicy(sizePolicy3)
+        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.writepartitionList.sizePolicy().hasHeightForWidth())
+        self.writepartitionList.setSizePolicy(sizePolicy4)
         self.writepartitionList.setMinimumSize(QSize(0, 280))
         self.writepartitionList.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.writepartitionList.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -162,30 +211,57 @@ class Ui_MainWindow(object):
         self.writepartitionList.setWidgetResizable(True)
         self.scrollAreaWidgetContents_2 = QWidget()
         self.scrollAreaWidgetContents_2.setObjectName(u"scrollAreaWidgetContents_2")
-        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 577, 327))
+        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 700, 311))
         self.writepartitionList.setWidget(self.scrollAreaWidgetContents_2)
 
-        self.gridLayout_6.addWidget(self.writepartitionList, 1, 0, 2, 1)
+        self.verticalLayout_9.addWidget(self.writepartitionList)
 
-        self.writepartbtn = QPushButton(self.writetab)
-        self.writepartbtn.setObjectName(u"writepartbtn")
 
-        self.gridLayout_6.addWidget(self.writepartbtn, 0, 1, 1, 1)
-
-        self.writeselectfromdir = QPushButton(self.writetab)
-        self.writeselectfromdir.setObjectName(u"writeselectfromdir")
-
-        self.gridLayout_6.addWidget(self.writeselectfromdir, 2, 1, 1, 1)
+        self.gridLayout_6.addLayout(self.verticalLayout_9, 0, 0, 1, 1)
 
         self.tabWidget.addTab(self.writetab, "")
         self.erasetab = QWidget()
         self.erasetab.setObjectName(u"erasetab")
-        self.gridLayout_5 = QGridLayout(self.erasetab)
-        self.gridLayout_5.setObjectName(u"gridLayout_5")
+        self.horizontalLayout_10 = QHBoxLayout(self.erasetab)
+        self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
+        self.verticalLayout_10 = QVBoxLayout()
+        self.verticalLayout_10.setObjectName(u"verticalLayout_10")
+        self.horizontalLayout_9 = QHBoxLayout()
+        self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
+        self.erasetitle = QLabel(self.erasetab)
+        self.erasetitle.setObjectName(u"erasetitle")
+        sizePolicy3.setHeightForWidth(self.erasetitle.sizePolicy().hasHeightForWidth())
+        self.erasetitle.setSizePolicy(sizePolicy3)
+        self.erasetitle.setMinimumSize(QSize(0, 20))
+        self.erasetitle.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignTop)
+
+        self.horizontalLayout_9.addWidget(self.erasetitle)
+
+        self.horizontalSpacer_13 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_9.addItem(self.horizontalSpacer_13)
+
+        self.eraseselectallpartitionscheckbox = QCheckBox(self.erasetab)
+        self.eraseselectallpartitionscheckbox.setObjectName(u"eraseselectallpartitionscheckbox")
+
+        self.horizontalLayout_9.addWidget(self.eraseselectallpartitionscheckbox)
+
+        self.horizontalSpacer_12 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_9.addItem(self.horizontalSpacer_12)
+
+        self.erasepartitionsbtn = QPushButton(self.erasetab)
+        self.erasepartitionsbtn.setObjectName(u"erasepartitionsbtn")
+
+        self.horizontalLayout_9.addWidget(self.erasepartitionsbtn)
+
+
+        self.verticalLayout_10.addLayout(self.horizontalLayout_9)
+
         self.erasepartitionList = QScrollArea(self.erasetab)
         self.erasepartitionList.setObjectName(u"erasepartitionList")
-        sizePolicy3.setHeightForWidth(self.erasepartitionList.sizePolicy().hasHeightForWidth())
-        self.erasepartitionList.setSizePolicy(sizePolicy3)
+        sizePolicy4.setHeightForWidth(self.erasepartitionList.sizePolicy().hasHeightForWidth())
+        self.erasepartitionList.setSizePolicy(sizePolicy4)
         self.erasepartitionList.setMinimumSize(QSize(0, 280))
         self.erasepartitionList.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.erasepartitionList.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -193,29 +269,13 @@ class Ui_MainWindow(object):
         self.erasepartitionList.setWidgetResizable(True)
         self.scrollAreaWidgetContents_3 = QWidget()
         self.scrollAreaWidgetContents_3.setObjectName(u"scrollAreaWidgetContents_3")
-        self.scrollAreaWidgetContents_3.setGeometry(QRect(0, 0, 598, 298))
+        self.scrollAreaWidgetContents_3.setGeometry(QRect(0, 0, 700, 311))
         self.erasepartitionList.setWidget(self.scrollAreaWidgetContents_3)
 
-        self.gridLayout_5.addWidget(self.erasepartitionList, 2, 0, 2, 1)
+        self.verticalLayout_10.addWidget(self.erasepartitionList)
 
-        self.erasetitle = QLabel(self.erasetab)
-        self.erasetitle.setObjectName(u"erasetitle")
-        sizePolicy1.setHeightForWidth(self.erasetitle.sizePolicy().hasHeightForWidth())
-        self.erasetitle.setSizePolicy(sizePolicy1)
-        self.erasetitle.setMinimumSize(QSize(0, 20))
-        self.erasetitle.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignTop)
 
-        self.gridLayout_5.addWidget(self.erasetitle, 0, 0, 1, 1)
-
-        self.erasepartitionsbtn = QPushButton(self.erasetab)
-        self.erasepartitionsbtn.setObjectName(u"erasepartitionsbtn")
-
-        self.gridLayout_5.addWidget(self.erasepartitionsbtn, 0, 1, 1, 1)
-
-        self.eraseselectallpartitionscheckbox = QCheckBox(self.erasetab)
-        self.eraseselectallpartitionscheckbox.setObjectName(u"eraseselectallpartitionscheckbox")
-
-        self.gridLayout_5.addWidget(self.eraseselectallpartitionscheckbox, 1, 0, 1, 1)
+        self.horizontalLayout_10.addLayout(self.verticalLayout_10)
 
         self.tabWidget.addTab(self.erasetab, "")
         self.tab = QWidget()
@@ -244,7 +304,7 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_2.addWidget(self.readrpmbbtn)
 
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_2.addItem(self.verticalSpacer)
 
@@ -273,7 +333,7 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_3.addWidget(self.writerpmbbtn)
 
-        self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_3.addItem(self.verticalSpacer_2)
 
@@ -297,7 +357,7 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_4.addWidget(self.eraserpmbbtn)
 
-        self.verticalSpacer_3 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.verticalSpacer_3 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_4.addItem(self.verticalSpacer_3)
 
@@ -367,7 +427,7 @@ class Ui_MainWindow(object):
         self.generatekeybtn = QPushButton(self.keytab)
         self.generatekeybtn.setObjectName(u"generatekeybtn")
 
-        self.gridLayout_2.addWidget(self.generatekeybtn, 3, 0, 1, 1)
+        self.gridLayout_2.addWidget(self.generatekeybtn, 0, 0, 1, 1)
 
         self.tabWidget.addTab(self.keytab, "")
         self.debugtab = QWidget()
@@ -383,11 +443,11 @@ class Ui_MainWindow(object):
 
         self.logBox = QPlainTextEdit(self.debugtab)
         self.logBox.setObjectName(u"logBox")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.logBox.sizePolicy().hasHeightForWidth())
-        self.logBox.setSizePolicy(sizePolicy4)
+        sizePolicy5 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.logBox.sizePolicy().hasHeightForWidth())
+        self.logBox.setSizePolicy(sizePolicy5)
         self.logBox.setMinimumSize(QSize(700, 0))
         self.logBox.setStyleSheet(u"")
         self.logBox.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -431,8 +491,8 @@ class Ui_MainWindow(object):
         self.connectInfo = QWidget(self.centralwidget)
         self.connectInfo.setObjectName(u"connectInfo")
         self.connectInfo.setEnabled(True)
-        sizePolicy1.setHeightForWidth(self.connectInfo.sizePolicy().hasHeightForWidth())
-        self.connectInfo.setSizePolicy(sizePolicy1)
+        sizePolicy3.setHeightForWidth(self.connectInfo.sizePolicy().hasHeightForWidth())
+        self.connectInfo.setSizePolicy(sizePolicy3)
         self.connectInfo.setMinimumSize(QSize(0, 0))
         self.connectInfo.setMaximumSize(QSize(16777215, 0))
         self.verticalLayout_6 = QVBoxLayout(self.connectInfo)
@@ -443,11 +503,11 @@ class Ui_MainWindow(object):
         self.horizontalLayout_4 = QHBoxLayout()
         self.horizontalLayout_4.setSpacing(0)
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
-        self.horizontalSpacer_2 = QSpacerItem(5, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(5, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_4.addItem(self.horizontalSpacer_2)
 
-        self.horizontalSpacer_7 = QSpacerItem(9, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.horizontalSpacer_7 = QSpacerItem(9, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_4.addItem(self.horizontalSpacer_7)
 
@@ -464,7 +524,7 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_4.addWidget(self.initStepsImage)
 
-        self.horizontalSpacer = QSpacerItem(5, 18, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(5, 18, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_4.addItem(self.horizontalSpacer)
 
@@ -473,17 +533,17 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_3 = QHBoxLayout()
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.horizontalSpacer_6 = QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_6 = QSpacerItem(10, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_6)
 
         self.label_2 = QLabel(self.connectInfo)
         self.label_2.setObjectName(u"label_2")
-        sizePolicy5 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        sizePolicy5.setHorizontalStretch(0)
-        sizePolicy5.setVerticalStretch(0)
-        sizePolicy5.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
-        self.label_2.setSizePolicy(sizePolicy5)
+        sizePolicy6 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        sizePolicy6.setHorizontalStretch(0)
+        sizePolicy6.setVerticalStretch(0)
+        sizePolicy6.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
+        self.label_2.setSizePolicy(sizePolicy6)
         self.label_2.setMinimumSize(QSize(195, 0))
         self.label_2.setMaximumSize(QSize(195, 16777215))
         self.label_2.setAlignment(Qt.AlignHCenter|Qt.AlignTop)
@@ -492,14 +552,14 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_3.addWidget(self.label_2)
 
-        self.horizontalSpacer_3 = QSpacerItem(50, 0, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.horizontalSpacer_3 = QSpacerItem(50, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_3)
 
         self.label_3 = QLabel(self.connectInfo)
         self.label_3.setObjectName(u"label_3")
-        sizePolicy5.setHeightForWidth(self.label_3.sizePolicy().hasHeightForWidth())
-        self.label_3.setSizePolicy(sizePolicy5)
+        sizePolicy6.setHeightForWidth(self.label_3.sizePolicy().hasHeightForWidth())
+        self.label_3.setSizePolicy(sizePolicy6)
         self.label_3.setMinimumSize(QSize(195, 10))
         self.label_3.setMaximumSize(QSize(195, 16777215))
         self.label_3.setAlignment(Qt.AlignHCenter|Qt.AlignTop)
@@ -508,14 +568,14 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_3.addWidget(self.label_3)
 
-        self.horizontalSpacer_4 = QSpacerItem(50, 0, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.horizontalSpacer_4 = QSpacerItem(50, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_4)
 
         self.label_4 = QLabel(self.connectInfo)
         self.label_4.setObjectName(u"label_4")
-        sizePolicy5.setHeightForWidth(self.label_4.sizePolicy().hasHeightForWidth())
-        self.label_4.setSizePolicy(sizePolicy5)
+        sizePolicy6.setHeightForWidth(self.label_4.sizePolicy().hasHeightForWidth())
+        self.label_4.setSizePolicy(sizePolicy6)
         self.label_4.setMinimumSize(QSize(195, 0))
         self.label_4.setMaximumSize(QSize(195, 16777215))
         self.label_4.setScaledContents(False)
@@ -525,7 +585,7 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_3.addWidget(self.label_4)
 
-        self.horizontalSpacer_5 = QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_5 = QSpacerItem(10, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_5)
 
@@ -534,7 +594,7 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_5 = QHBoxLayout()
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
-        self.horizontalSpacer_showdebug = QSpacerItem(50, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_showdebug = QSpacerItem(50, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_5.addItem(self.horizontalSpacer_showdebug)
 
@@ -569,11 +629,11 @@ class Ui_MainWindow(object):
         self.horizontalLayout.setContentsMargins(-1, -1, -1, 0)
         self.logoPic = QLabel(self.centralwidget)
         self.logoPic.setObjectName(u"logoPic")
-        sizePolicy6 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        sizePolicy6.setHorizontalStretch(0)
-        sizePolicy6.setVerticalStretch(0)
-        sizePolicy6.setHeightForWidth(self.logoPic.sizePolicy().hasHeightForWidth())
-        self.logoPic.setSizePolicy(sizePolicy6)
+        sizePolicy7 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy7.setHorizontalStretch(0)
+        sizePolicy7.setVerticalStretch(0)
+        sizePolicy7.setHeightForWidth(self.logoPic.sizePolicy().hasHeightForWidth())
+        self.logoPic.setSizePolicy(sizePolicy7)
         self.logoPic.setMinimumSize(QSize(158, 158))
         self.logoPic.setMaximumSize(QSize(158, 158))
         self.logoPic.setPixmap(QPixmap(u"images/logo_256.png"))
@@ -584,8 +644,8 @@ class Ui_MainWindow(object):
 
         self.copyrightInfo = QLabel(self.centralwidget)
         self.copyrightInfo.setObjectName(u"copyrightInfo")
-        sizePolicy6.setHeightForWidth(self.copyrightInfo.sizePolicy().hasHeightForWidth())
-        self.copyrightInfo.setSizePolicy(sizePolicy6)
+        sizePolicy7.setHeightForWidth(self.copyrightInfo.sizePolicy().hasHeightForWidth())
+        self.copyrightInfo.setSizePolicy(sizePolicy7)
 
         self.horizontalLayout.addWidget(self.copyrightInfo)
 
@@ -600,11 +660,8 @@ class Ui_MainWindow(object):
         self.verticalLayout_7.setObjectName(u"verticalLayout_7")
         self.phoneInfoTextbox = QLabel(self.centralwidget)
         self.phoneInfoTextbox.setObjectName(u"phoneInfoTextbox")
-        sizePolicy7 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        sizePolicy7.setHorizontalStretch(0)
-        sizePolicy7.setVerticalStretch(0)
-        sizePolicy7.setHeightForWidth(self.phoneInfoTextbox.sizePolicy().hasHeightForWidth())
-        self.phoneInfoTextbox.setSizePolicy(sizePolicy7)
+        sizePolicy1.setHeightForWidth(self.phoneInfoTextbox.sizePolicy().hasHeightForWidth())
+        self.phoneInfoTextbox.setSizePolicy(sizePolicy1)
         self.phoneInfoTextbox.setAlignment(Qt.AlignRight|Qt.AlignTop|Qt.AlignTrailing)
         self.phoneInfoTextbox.setWordWrap(True)
 
@@ -612,7 +669,7 @@ class Ui_MainWindow(object):
 
         self.phoneDebugInfoTextbox = QLabel(self.centralwidget)
         self.phoneDebugInfoTextbox.setObjectName(u"phoneDebugInfoTextbox")
-        sizePolicy8 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        sizePolicy8 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         sizePolicy8.setHorizontalStretch(0)
         sizePolicy8.setVerticalStretch(0)
         sizePolicy8.setHeightForWidth(self.phoneDebugInfoTextbox.sizePolicy().hasHeightForWidth())
@@ -630,22 +687,22 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.horizontalLayout_2.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.horizontalLayout_2.setContentsMargins(-1, 0, -1, -1)
-        self.horizontalSpacer_8 = QSpacerItem(20, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_8 = QSpacerItem(20, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_8)
 
         self.consettingsbtn = QPushButton(self.centralwidget)
         self.consettingsbtn.setObjectName(u"consettingsbtn")
-        sizePolicy6.setHeightForWidth(self.consettingsbtn.sizePolicy().hasHeightForWidth())
-        self.consettingsbtn.setSizePolicy(sizePolicy6)
-        self.consettingsbtn.setMaximumSize(QSize(120, 16777215))
+        sizePolicy7.setHeightForWidth(self.consettingsbtn.sizePolicy().hasHeightForWidth())
+        self.consettingsbtn.setSizePolicy(sizePolicy7)
+        self.consettingsbtn.setMaximumSize(QSize(140, 16777215))
 
         self.horizontalLayout_2.addWidget(self.consettingsbtn)
 
 
         self.verticalLayout_7.addLayout(self.horizontalLayout_2)
 
-        self.verticalSpacer_5 = QSpacerItem(20, 2, QSizePolicy.Minimum, QSizePolicy.Maximum)
+        self.verticalSpacer_5 = QSpacerItem(20, 2, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Maximum)
 
         self.verticalLayout_7.addItem(self.verticalSpacer_5)
 
@@ -654,14 +711,14 @@ class Ui_MainWindow(object):
 
         self.widget_3 = QWidget(self.centralwidget)
         self.widget_3.setObjectName(u"widget_3")
-        sizePolicy6.setHeightForWidth(self.widget_3.sizePolicy().hasHeightForWidth())
-        self.widget_3.setSizePolicy(sizePolicy6)
+        sizePolicy7.setHeightForWidth(self.widget_3.sizePolicy().hasHeightForWidth())
+        self.widget_3.setSizePolicy(sizePolicy7)
         self.widget_3.setMinimumSize(QSize(90, 158))
         self.pic = QLabel(self.widget_3)
         self.pic.setObjectName(u"pic")
         self.pic.setGeometry(QRect(0, 0, 90, 158))
-        sizePolicy6.setHeightForWidth(self.pic.sizePolicy().hasHeightForWidth())
-        self.pic.setSizePolicy(sizePolicy6)
+        sizePolicy7.setHeightForWidth(self.pic.sizePolicy().hasHeightForWidth())
+        self.pic.setSizePolicy(sizePolicy7)
         self.pic.setMinimumSize(QSize(90, 158))
         self.pic.setMaximumSize(QSize(90, 158))
         self.pic.setPixmap(QPixmap(u"images/phone_notfound.png"))
@@ -671,8 +728,8 @@ class Ui_MainWindow(object):
         self.spinner_pic = QLabel(self.widget_3)
         self.spinner_pic.setObjectName(u"spinner_pic")
         self.spinner_pic.setGeometry(QRect(20, 55, 51, 51))
-        sizePolicy6.setHeightForWidth(self.spinner_pic.sizePolicy().hasHeightForWidth())
-        self.spinner_pic.setSizePolicy(sizePolicy6)
+        sizePolicy7.setHeightForWidth(self.spinner_pic.sizePolicy().hasHeightForWidth())
+        self.spinner_pic.setSizePolicy(sizePolicy7)
         self.spinner_pic.setPixmap(QPixmap(u"images/phone_loading.png"))
         self.spinner_pic.setScaledContents(True)
         self.spinner_pic.setAlignment(Qt.AlignCenter)
@@ -687,7 +744,7 @@ class Ui_MainWindow(object):
         self.connectInfo.raise_()
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 746, 22))
+        self.menubar.setGeometry(QRect(0, 0, 746, 24))
         self.menuFile = QMenu(self.menubar)
         self.menuFile.setObjectName(u"menuFile")
         MainWindow.setMenuBar(self.menubar)
@@ -700,14 +757,14 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
 
-        self.tabWidget.setCurrentIndex(5)
+        self.tabWidget.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MTKClient v2.0", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MTKClient v2.01", None))
         self.actionRead_partition_s.setText(QCoreApplication.translate("MainWindow", u"Quit", None))
         self.actionRead_full_flash.setText(QCoreApplication.translate("MainWindow", u"Read full flash", None))
         self.actionRead_offset.setText(QCoreApplication.translate("MainWindow", u"Read at offset", None))
@@ -726,18 +783,18 @@ class Ui_MainWindow(object):
         self.actionUnlock_device.setText(QCoreApplication.translate("MainWindow", u"Unlock / Lock", None))
         self.actionLock_device.setText(QCoreApplication.translate("MainWindow", u"Lock device", None))
         self.action_Quit.setText(QCoreApplication.translate("MainWindow", u"&Quit", None))
-        self.readDumpGPTCheckbox.setText(QCoreApplication.translate("MainWindow", u"Dump GPT", None))
-        self.readtitle.setText(QCoreApplication.translate("MainWindow", u"Select partitions to read", None))
-        self.readpartitionsbtn.setText(QCoreApplication.translate("MainWindow", u"Read partition(s)", None))
         self.readselectallcheckbox.setText(QCoreApplication.translate("MainWindow", u"Select all partitions", None))
+        self.readDumpGPTCheckbox.setText(QCoreApplication.translate("MainWindow", u"Dump GPT", None))
+        self.readtitle.setText("")
+        self.readpartitionsbtn.setText(QCoreApplication.translate("MainWindow", u"Read partition(s)", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.readtab), QCoreApplication.translate("MainWindow", u"Read partition(s)", None))
         self.writetitle.setText(QCoreApplication.translate("MainWindow", u"Select partitions to write", None))
-        self.writepartbtn.setText(QCoreApplication.translate("MainWindow", u"Write partition(s)", None))
         self.writeselectfromdir.setText(QCoreApplication.translate("MainWindow", u"Select from directory", None))
+        self.writepartbtn.setText(QCoreApplication.translate("MainWindow", u"Write partition(s)", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.writetab), QCoreApplication.translate("MainWindow", u"Write partition(s)", None))
         self.erasetitle.setText(QCoreApplication.translate("MainWindow", u"Select partitions to erase", None))
-        self.erasepartitionsbtn.setText(QCoreApplication.translate("MainWindow", u"Erase partition(s)", None))
         self.eraseselectallpartitionscheckbox.setText(QCoreApplication.translate("MainWindow", u"Select all partitions", None))
+        self.erasepartitionsbtn.setText(QCoreApplication.translate("MainWindow", u"Erase partition(s)", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.erasetab), QCoreApplication.translate("MainWindow", u"Erase partition(s)", None))
         self.readflashbtn.setText(QCoreApplication.translate("MainWindow", u"Read flash", None))
         self.readpreloaderbtn.setText(QCoreApplication.translate("MainWindow", u"Read preloader", None))
