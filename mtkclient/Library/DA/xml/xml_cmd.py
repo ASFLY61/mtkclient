@@ -1,42 +1,75 @@
 import datetime
-
 from mtkclient.Library.utils import LogBase
+
+
+class BootModes:
+    fastboot = "FASTBOOT"
+    meta = "META"
+    testmode = "ANDROID-TEST-MODE"
 
 
 class XMLCmd(metaclass=LogBase):
 
     def __init__(self, mtk):
         self.mtk = mtk
+        self.MAGIC = 0xFEEEEEEF
 
-    def create_cmd(self, cmd: str, arg: str = "", adv: str = ""):
-        args = f"""<arg>{arg}</arg>"""
-        cmd = f"""<?xml version="1.0" encoding="utf-8"?>
-        <da>
-            <version>1.0</version>
-            <command>CMD:{cmd}</command>
-            {args}
-            {adv}
-        </da>"""
+    @staticmethod
+    def create_cmd(cmd: str, content: dict = None, version="1.0"):
+        cmd = f"<?xml version=\"1.0\" encoding=\"utf-8\"?><da><version>{version}</version><command>CMD:{cmd}</command>"
+        if content is not None:
+            for item in content:
+                cmd += f"<{item}>"
+                for subitem in content[item]:
+                    cmd += f"{subitem}"
+                cmd += f"</{item}>"
+        cmd += "</da>"
         return cmd
 
-    ################ DA1 ######################
+    # DA1
 
     def cmd_notify_init_hw(self):
         """
-        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:NOTIFY-INIT-HW</command><arg></arg></da>
+        <?xml version="1.0" encoding="utf-8"?>
+        <da>
+        <version>1.0</version>
+        <command>CMD:NOTIFY-INIT-HW</command>
+        <arg></arg>
+        </da>
         """
         cmd = self.create_cmd("NOTIFY-INIT-HW")
+        return cmd
+
+    def cmd_security_set_flash_policy(self, host_offset: int = 0x8000000,
+                                      length: int = 0x100000):
+        """
+        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version>
+        <command>CMD:SECURITY-SET-FLASH-POLICY</command><arg>
+        <source_file>MEM://0x8000000:0x100000</source_file></arg></da>
+        """
+        content = {
+            "arg": [
+                f"<source_file>MEM://{hex(host_offset)}:{hex(length)}</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("SECURITY-SET-FLASH-POLICY", content)
         return cmd
 
     def cmd_boot_to(self, at_addr: int = 0x40000000, jmp_addr: int = 0x40000000, host_offset: int = 0x7fe83c09a04c,
                     length: int = 0x50c78):
         """
-        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:BOOT-TO</command><arg><at_address>0x40000000</at_address><jmp_address>0x40000000</jmp_address> <source_file>MEM://0x7fe83c09a04c:0x50c78</source_file></arg></da>
+        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:BOOT-TO</command><arg>
+        <at_address>0x40000000</at_address><jmp_address>0x40000000</jmp_address>
+        <source_file>MEM://0x7fe83c09a04c:0x50c78</source_file></arg></da>
         """
-        arg = f"""<at_address>{hex(at_addr)}</at_address>
-            <jmp_address>{hex(jmp_addr)}</jmp_address>
-            <source_file>MEM://{hex(host_offset)}:{hex(length)}</source_file>"""
-        cmd = self.create_cmd("BOOT-TO", arg)
+        content = {
+            "arg": [
+                f"<at_address>{hex(at_addr)}</at_address>",
+                f"<jmp_address>{hex(jmp_addr)}</jmp_address>",
+                f"<source_file>MEM://{hex(host_offset)}:{hex(length)}</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("BOOT-TO", content)
         return cmd
 
     """
@@ -47,79 +80,104 @@ class XMLCmd(metaclass=LogBase):
     def cmd_set_runtime_parameter(self, checksum_level: str = "NONE", battery_exist: str = "AUTO-DETECT",
                                   da_log_level: str = "INFO", log_channel: str = "UART", system_os: str = "LINUX",
                                   version: str = "1.1", initialize_dram: bool = True):
-        b"""
-        <?xml version="1.0" encoding="utf-8"?>
-        <da>
-            <version>1.1</version>
-            <command>CMD:SET-RUNTIME-PARAMETER</command>
-            <arg>
-                <checksum_level>NONE</checksum_level>
-                <battery_exist>AUTO-DETECT</battery_exist>
-                <da_log_level>INFO</da_log_level>
-                <log_channel>UART</log_channel>
-                <system_os>LINUX</system_os>
-            </arg>
-            <adv>
-                <initialize_dram>YES</initialize_dram>
-            </adv>
-        </da>\x00
-        """
-        arg = f"""<checksum_level>{checksum_level}</checksum_level>
-            <da_log_level>{da_log_level}</da_log_level>
-            <log_channel>{log_channel}</da_log_channel>
-            <battery_exist>{battery_exist}</battery_exist>
-            <system_os>{system_os}</system_os>"""
-        if version is not None:
-            arg += f"""<version>{version}</version>"""
+        cmd = f"""<?xml version="1.0" encoding="utf-8"?>
+<da>
+    <version>1.1</version>
+    <command>CMD:SET-RUNTIME-PARAMETER</command>
+    <arg>
+        <checksum_level>{checksum_level}</checksum_level>
+        <battery_exist>{battery_exist}</battery_exist>
+        <da_log_level>{da_log_level}</da_log_level>
+        <log_channel>{log_channel}</log_channel>
+        <system_os>{system_os}</system_os>
+    </arg>
+    <adv>
+        <initialize_dram>{"YES" if initialize_dram else "NO"}</initialize_dram>
+    </adv>
+</da>\x00"""
+        if initialize_dram is not None:
+            dram = "YES" if initialize_dram else "NO"
+        else:
+            dram = "YES"
+        content = {
+            "arg": [
+                f"<checksum_level>{checksum_level}</checksum_level>",
+                f"<battery_exist>{battery_exist}</battery_exist>",
+                f"<da_log_level>{da_log_level}</da_log_level>",
+                f"<log_channel>{log_channel}</log_channel>",
+                f"<system_os>{system_os}</system_os>"],
+            "adv": [
+                f"<initialize_dram>{dram}</initialize_dram>"
+            ]
+        }
         # checksum_level (NONE,USB,STORAGE,USB-STORAGE)
         # da_log_level (TRACE,DEBUG,INFO,WARN,ERROR)
         # log_channel (USB/UART)
         # battery_exist (YES,NO,AUTO-DETECT)
-        adv = ""
-        if initialize_dram is not None:
-            adv = f"""<adv><initialize_dram>YES</initialize_dram></adv>"""
-        else:
-            adv = f"""<adv><initialize_dram>NO</initialize_dram></adv>"""
-        cmd = self.create_cmd("SET-RUNTIME-PARAMETER", arg, adv)
+        cmd = self.create_cmd("SET-RUNTIME-PARAMETER", content, version)
         return cmd
 
     def cmd_host_supported_commands(self,
-                                    host_capability: str = "CMD:DOWNLOAD-FILE^1@CMD:FILE-SYS-OPERATION^1@CMD:PROGRESS-REPORT^1@CMD:UPLOAD-FILE^1@"):
+                                    host_capability: str = "CMD:DOWNLOAD-FILE^1@CMD:FILE-SYS-OPERATION^1" +
+                                                           "@CMD:PROGRESS-REPORT^1@CMD:UPLOAD-FILE^1@"):
         """
-        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:HOST-SUPPORTED-COMMANDS</command><arg><host_capability>CMD:DOWNLOAD-FILE^1@CMD:FILE-SYS-OPERATION^1@CMD:PROGRESS-REPORT^1@CMD:UPLOAD-FILE^1@</host_capability></arg></da>\x00
+        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:HOST-SUPPORTED-COMMANDS</command>
+        <arg><host_capability>CMD:DOWNLOAD-FILE^1@CMD:FILE-SYS-OPERATION^1@CMD:PROGRESS-REPORT^1@CMD:UPLOAD-FILE^1@
+        </host_capability></arg></da>\x00
         """
-        arg = f"""<host_capability>{host_capability}</host_capability>"""
-        cmd = self.create_cmd("HOST-SUPPORTED-COMMANDS", arg)
+        content = {
+            "arg": [
+                f"<host_capability>{host_capability}</host_capability>"
+            ]
+        }
+        cmd = self.create_cmd("HOST-SUPPORTED-COMMANDS", content)
         return cmd
 
     def cmd_ram_test(self, function: str = "FLIP", start_address: int = 0x4000000, length: int = 0x100000,
                      repeat: int = 0xA):
         if function == "FLIP":
-            arg = f"""<function>FLIP</function>
-                <start_address>{hex(start_address)}</start_address>
-                <length>{hex(length)}</length>
-                <repeat>{hex(repeat)}</repeat>"""
+            content = {
+                "arg": [
+                    "<function>FLIP</function>",
+                    f"<start_address>{hex(start_address)}</start_address>",
+                    f"<length>{hex(length)}</length>",
+                    f"<repeat>{hex(repeat)}</repeat>"
+                ]
+            }
         else:
-            arg = f"""<function>CALIBRATION</function>
-               <target_file>ms-appdata:///local/calib.bin</target_file>"""
-        cmd = self.create_cmd("RAM-TEST", arg)
-        resp = """
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:UPLOAD-FILE</command><arg><checksum>CHK_NO</checksum><info>WriteLocalFile</info><target_file>%s</target_file><packet_length>0x%x</packet_length></arg></host>
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:PROGRESS-REPORT</command><arg><message>RAM test.</message></arg></host>
+            content = {
+                "arg": [
+                    "<function>CALIBRATION</function>",
+                    "<target_file>ms-appdata:///local/calib.bin</target_file>"
+                ]
+            }
+        cmd = self.create_cmd("RAM-TEST", content)
+        # resp =
+        """
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:UPLOAD-FILE</command><arg>
+        <checksum>CHK_NO</checksum><info>WriteLocalFile</info><target_file>%s</target_file>
+        <packet_length>0x%x</packet_length></arg></host>
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:PROGRESS-REPORT</command>
+        <arg><message>RAM test.</message></arg></host>
         or
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:PROGRESS-REPORT</command><arg><message>Interface diag</message></arg></host>
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:PROGRESS-REPORT</command>
+        <arg><message>Interface diag</message></arg></host>
         """
         return cmd
 
     def cmd_dram_repair(self, mem_offset: int = 0x10000, mem_length: int = 0x1000):
-        arg = f"""<param_file>D:/dram.info</param_file>
-            <target_file>MEM://{mem_offset}:{mem_length}</target_file>"""
-        cmd = self.create_cmd("DRAM-REPAIR", arg)
+        content = {
+            "arg": [
+                "<param_file>D:/dram.info</param_file>",
+                f"<target_file>MEM://{mem_offset}:{mem_length}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("DRAM-REPAIR", content)
         # INFO Result: SUCCEEDED, NO-NEED, FAILED
         return cmd
 
-    ################ DA2 ######################
-    def cmd_read_partition_table(self,host_mem_offset:int=0x7fe83c538720, length:int=0x200000):
+    # DA2
+    def cmd_read_partition_table(self, host_mem_offset: int = 0x7fe83c538720, length: int = 0x200000):
         """
         <?xml version="1.0" encoding="utf-8"?>
         <da>
@@ -130,9 +188,15 @@ class XMLCmd(metaclass=LogBase):
             </arg>
         </da>
         """
-        arg = f"""<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"""
-        cmd = self.create_cmd("READ-PARTITION-TABLE", arg)
-        resp = """
+        content = {
+            "arg": [
+                f"<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"
+            ]
+        }
+
+        cmd = self.create_cmd("READ-PARTITION-TABLE", content)
+        # resp =
+        """
         <?xml version="1.0" encoding="utf-8"?>
         <partition_table version="1.0">
         <pt>
@@ -159,28 +223,75 @@ class XMLCmd(metaclass=LogBase):
         """
         return cmd
 
-
-    def cmd_can_higher_usb_speed(self, host_mem_offset:int=0x7fe8463ed240, length:int=0x40):
+    def cmd_can_higher_usb_speed(self, host_mem_offset: int = 0x7fe8463ed240, length: int = 0x40):
         """
-        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:CAN-HIGHER-USB-SPEED</command><arg><target_file>MEM://0x7fe8463ed240:0x40</target_file></arg></da>
+        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version>
+        <command>CMD:CAN-HIGHER-USB-SPEED</command><arg><target_file>MEM://0x7fe8463ed240:0x40</target_file></arg></da>
         """
-        arg = f"<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"
-        cmd = self.create_cmd("CAN-HIGHER-USB-SPEED", arg)
+        content = {
+            "arg": [
+                f"<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("CAN-HIGHER-USB-SPEED", content)
         return cmd
+
     def cmd_write_efuse(self):
-        arg = f"""<source_file>ms-appdata:///local/efuse.xml</source_file>"""
-        cmd = self.create_cmd("WRITE-EFUSE", arg)
-        resp = """
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:DOWNLOAD-FILE</command><a"rg><checksum>%s</checksum><info>%s</info><source_file>%s</source_file><packet_length>0x%x</packet_length></arg></host>
+        content = {
+            "arg": [
+                "<source_file>ms-appdata:///local/efuse.xml</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("WRITE-EFUSE", content)
+        # resp =
+        """
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version>
+        <command>CMD:DOWNLOAD-FILE</command><a"rg><checksum>%s</checksum>
+        <info>%s</info><source_file>%s</source_file><packet_length>0x%x</packet_length></arg></host>
         """
         return cmd
 
     def cmd_read_efuse(self):
-        arg = f"""<target_file>ms-appdata:///local/efuse.xml</target_file>"""
-        cmd = self.create_cmd("READ-EFUSE", arg)
-        resp = """
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:UPLOAD-FILE</command><arg><"checksum>CHK_NO</checksum><info>%s</info><target_file>%s</target_file><packet_length>0x%x</packet_length></arg></host>
+        content = {
+            "arg": [
+                "<target_file>ms-appdata:///local/efuse.xml</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("READ-EFUSE", content)
+        # resp =
+        """
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version>
+        <command>CMD:UPLOAD-FILE</command><arg><"checksum>CHK_NO</checksum><info>%s</info>
+        <target_file>%s</target_file><packet_length>0x%x</packet_length></arg></host>
         OK@0x%x (length)
+        """
+        return cmd
+
+    def cmd_get_dev_info(self, host_mem_offset=0x8000000, length=0x100000):
+        """
+        <?xml version="1.0" encoding="utf-8"?>
+        <da>
+            <version>1.0</version>
+            <command>CMD:SECURITY-GET-DEV-FW-INFO</command>
+            <arg>
+                <target_file>MEM://0x8000000:0x100000</target_file>
+            </arg>
+        </da>
+        """
+        content = {
+            "arg": [
+                f"<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("SECURITY-GET-DEV-FW-INFO", content)
+        """
+        resp:
+        <?xml version="1.0" encoding="utf-8"?>
+        <sla version="1.0">
+                <rnd>xxxx</rnd>
+                <hrid>xxxx</hrid>
+                <socid>xxxx</socid>
+        </sla>'
         """
         return cmd
 
@@ -195,44 +306,84 @@ class XMLCmd(metaclass=LogBase):
             </arg>
         </da>
         """
-        arg = f"""<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"""
-        cmd = self.create_cmd("GET-HW-INFO", arg)
-        resp = """ #EMMC
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.2</version><ram_size>0x%llx</ram_size><battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage><emmc><block_size>0x%x</block_size><boot1_size>0x%llx</boot1_size><boot2_size>0x%llx</boot2_size><rpmb_size>0x%llx</rpmb_size><user_size>0x%llx</user_size><gp1_size>0</gp1_size><gp2_size>0</gp2_size><gp3_size>0</gp3_size><gp4_size>0</gp4_size><id>%s</id></emmc><product_id>%s</product_id></da_hw_info>
+        content = {
+            "arg": [
+                f"<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("GET-HW-INFO", content)
+        # resp =
+        """ #EMMC
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.2</version><ram_size>0x%llx</ram_size>
+        <battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage><emmc>
+        <block_size>0x%x</block_size><boot1_size>0x%llx</boot1_size><boot2_size>0x%llx</boot2_size>
+        <rpmb_size>0x%llx</rpmb_size><user_size>0x%llx</user_size><gp1_size>0</gp1_size><gp2_size>0</gp2_size>
+        <gp3_size>0</gp3_size><gp4_size>0</gp4_size><id>%s</id></emmc><product_id>%s</product_id></da_hw_info>
         or #UFS
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.2</version><ram_size>0x%llx</ram_size><battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage><ufs><block_size>0x%x</block_size><lua0_size>0x%llx</lua0_size><lua1_size>0x%llx</lua1_size><lua2_size>0x%llx</lua2_size><lua3_size>0</lua3_size"><id>%s</id><ufs_vendor_id>0x%x</ufs_vendor_id><ufs_cid>%s</ufs_cid><ufs_fwver>%s</ufs_fwver></ufs><product_id>%s</product_id></da_hw_info>
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.2</version><ram_size>0x%llx</ram_size>
+        <battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage><ufs>
+        <block_size>0x%x</block_size><lua0_size>0x%llx</lua0_size><lua1_size>0x%llx</lua1_size>
+        <lua2_size>0x%llx</lua2_size><lua3_size>0</lua3_size"><id>%s</id><ufs_vendor_id>0x%x</ufs_vendor_id>
+        <ufs_cid>%s</ufs_cid><ufs_fwver>%s</ufs_fwver></ufs><product_id>%s</product_id></da_hw_info>
         or #NAND
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.2</version><ram_size>0x%llx</ram_size><battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage><nand><block_size>0x%x</block_size><page_size>0x%x</page_size><spare_size>0x%x</spare_size><total_size>0x%llx</total_size><id>%s</id><page_parity_size>0x%x</page_parity_size><sub_type>%s</sub_type></nand><product_id>%s</product_id></da_hw_info>
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.2</version><ram_size>0x%llx</ram_size>
+        <battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage><nand>
+        <block_size>0x%x</block_size><page_size>0x%x</page_size><spare_size>0x%x</spare_size>
+        <total_size>0x%llx</total_size><id>%s</id><page_parity_size>0x%x</page_parity_size><sub_type>%s</sub_type>
+        </nand><product_id>%s</product_id></da_hw_info>
         or #NONE
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.0</version><ram_size>0x%llx</ram_size><battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage></da_hw_info>
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_hw_info><version>1.0</version><ram_size>0x%llx</ram_size>
+        <battery_voltage>%d</battery_voltage><random_id>%s</random_id><storage>%s</storage></da_hw_info>
         """
+        return cmd
+
+    def cmd_set_boot_mode(self, mode: BootModes = BootModes.testmode, adb: bool = True, mobilelog: bool = True,
+                          connectuart: bool = False):
+        connect_type = "UART" if connectuart else "USB"
+        mobilelog = "ON" if mobilelog else "OFF"
+        adb = "ON" if adb else "OFF"
+        content = {
+            "arg": [
+                f"<mode>{mode}</mode>",
+                f"<connect_type>{connect_type}</connect_type>",
+                f"<mobile_log>{mobilelog}</mobile_log>",
+                f"<adb>{adb}</adb>"
+            ]
+        }
+        cmd = self.create_cmd("SET-BOOT-MODE", content)
         return cmd
 
     def cmd_read_reg(self, bit_width: int = 32, base_address: int = 0x1000, mem_offset: int = 0x8000000,
                      mem_length: int = 0x4):
-        arg = f"""<bit_width>{bit_width}</bit_width>
-            <base_address>{hex(base_address)}</base_address>
-            <target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"""
-        cmd = self.create_cmd("READ-REGISTER", arg)
-        resp = """
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:UPLOAD-FILE</command><arg><"checksum>CHK_NO</checksum><info>%s</info><target_file>%s</target_file><packet_length>0x%x</packet_length></arg></host>
-        OK@0x%x (length)
-        """
+        content = {
+            "arg": [
+                f"<bit_width>{bit_width}</bit_width>",
+                f"<base_address>{hex(base_address)}</base_address>",
+                f"<target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("READ-REGISTER", content)
         return cmd
 
     def cmd_write_reg(self, bit_width: int = 32, base_address: int = 0x1000, mem_offset: int = 0x8000000,
                       mem_length: int = 0x4):
-        arg = f"""<bit_width>{bit_width}</bit_width>
-            <base_address>{hex(base_address)}</base_address>
-            <source_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</source_file>"""
-        cmd = self.create_cmd("WRITE-REGISTER", arg)
+        content = {
+            "arg": [
+                f"<bit_width>{bit_width}</bit_width>",
+                f"<base_address>{hex(base_address)}</base_address>",
+                f"<source_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("WRITE-REGISTER", content)
         return cmd
 
-    def cmd_read_partition_name(self):
+    @staticmethod
+    def cmd_read_partition_name():
         cmd = ""
         return cmd
 
-    def cmd_debug_ufs(self):
+    @staticmethod
+    def cmd_debug_ufs():
         cmd = ""
         return cmd
 
@@ -248,9 +399,13 @@ class XMLCmd(metaclass=LogBase):
             </arg>
         </da>
         """
-        arg = f"""<function>{function}</function>
-           <target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"""
-        cmd = self.create_cmd("EMMC-CONTROL", arg)
+        content = {
+            "arg": [
+                f"<function>{function}</function>",
+                f"<target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("EMMC-CONTROL", content)
         return cmd
 
     def cmd_reboot(self, disconnect: bool = False):
@@ -258,109 +413,152 @@ class XMLCmd(metaclass=LogBase):
             action = "DISCONNECT"
         else:
             action = "IMMEDIATE"
-        arg = f"""<action>{action}</action>"""
-        cmd = self.create_cmd("REBOOT", arg)
+        content = {
+            "arg": [
+                f"<action>{action}</action>",
+            ]
+        }
+        cmd = self.create_cmd("REBOOT", content)
         return cmd
 
     def cmd_write_partition(self, partition: str = "system", mem_offset: int = 0x8000000, mem_length: int = 0x100000):
-        arg = f"""<partition>{partition}</partition>
-            <source_file>MEM://{hex(mem_offset)}:{hex(mem_length)}"""
-        cmd = self.create_cmd("WRITE-FLASH", arg)
+        content = {
+            "arg": [
+                f"<partition>{partition}</partition>",
+                f"<source_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("WRITE-FLASH", content)
         return cmd
 
     def cmd_write_flash(self, partition: str = "EMMC-USER", offset: int = 0, mem_offset: int = 0x8000000,
                         mem_length: int = 0x100000):
-        arg = f"""<partition>{partition}</partition>
-            <offset>{hex(offset)}</offset>
-            <source_file>MEM://{hex(mem_offset)}:{hex(mem_length)}"""
-        cmd = self.create_cmd("WRITE-FLASH", arg)
+        content = {
+            "arg": [
+                f"<partition>{partition}</partition>",
+                f"<offset>{hex(offset)}</offset>",
+                f"<source_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("WRITE-FLASH", content)
         return cmd
 
     def cmd_read_partition(self, partition: str = "system"):
-        arg = f"""<partition>{partition}</partition>
-            <target_file>"C:/file.bin"</target_file>"""
-        cmd = self.create_cmd("READ-PARTITION", arg)
+        content = {
+            "arg": [
+                f"<partition>{partition}</partition>",
+                "<target_file>\"C:/file.bin\"</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("READ-PARTITION", content)
         return cmd
 
     def cmd_read_flash(self, partition: str = "EMMC-USER", offset: int = 0, length: int = 0x100000):
-        arg = f"""<partition>{partition}</partition>
-            <offset>{hex(offset)}</offset>
-            <length>{hex(length)}</length>"""
-        cmd = self.create_cmd("READ-FLASH", arg)
+        content = {
+            "arg": [
+                f"<partition>{partition}</partition>",
+                f"<offset>{hex(offset)}</offset>",
+                f"<length>{hex(length)}</length>",
+                "<target_file>ROM_0</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("READ-FLASH", content)
         return cmd
 
     def cmd_flash_all(self):
-        arg = f"""<path_separator>/</path_separator>
-            <source_file>D:/scatter.xml</source_file>"""
-        cmd = self.create_cmd("FLASH-ALL", arg)
+        content = {
+            "arg": [
+                "<path_separator>/</path_separator>",
+                "<source_file>D:/scatter.xml</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("FLASH-ALL", content)
         return cmd
 
     def cmd_erase_partition(self, partition: str = "system"):
-        arg = f"""<partition>{partition}</partition>"""
-        cmd = self.create_cmd("ERASE-PARTITION", arg)
+        content = {
+            "arg": [
+                f"<partition>{partition}</partition>"
+            ]
+        }
+        cmd = self.create_cmd("ERASE-PARTITION", content)
         return cmd
 
     def cmd_erase_flash(self, partition: str = "EMMC-USER", offset: int = 0, length: int = 0x100000):
-        arg = f"""<partition>{partition}</partition>
-            <offset>{hex(offset)}</offset>
-            <length>{hex(length)}</length>"""
-        cmd = self.create_cmd("ERASE-FLASH", arg)
+        content = {
+            "arg": [
+                f"<partition>{partition}</partition>",
+                f"<offset>{hex(offset)}</offset>",
+                f"<length>{hex(length)}</length>"
+            ]
+        }
+        cmd = self.create_cmd("ERASE-FLASH", content)
         return cmd
 
     def cmd_flash_update(self):
-        arg = f"""<path_separator>/</path_separator>
-        <source_file>D:/scatter.xml</source_file>
-        <backup_folder>D:/backup</backup_folder>"""
-        cmd = self.create_cmd("FLASH-UPDATE", arg)
+        content = {
+            "arg": [
+                "<path_separator>/</path_separator>",
+                "<source_file>D:/scatter.xml</source_file>",
+                "<backup_folder>D:/backup</backup_folder>"
+            ]
+        }
+        cmd = self.create_cmd("FLASH-UPDATE", content)
         return cmd
 
     def cmd_write_partitions(self, partitions):
         flashlist = ""
         for partition in partitions:
-            flashlist += f"<pt name={partition}>{partition}.img</pt>\n"
-        arg = f"""<source_file>D:/scatter.xml</source_file>
-        <flash_list>{flashlist}</flash_list>"""
-        cmd = self.create_cmd("WRITE-PARTITIONS", arg)
-        return cmd
-
-    def cmd_set_boot_mode(self, boot_mode):
-        if boot_mode == "META":
-            arg = f"""<mode>META</mode>
-            <connect_type>WIFI</connect_type>
-            <mobile_log>ON</mobile_log>
-            <adb>ON</adb>"""
-            # ADB = (ON,UART,USB)
-        elif boot_mode == "FASTBOOT":
-            arg = f"""<mode>META</mode>"""
-        elif boot_mode == "ANDROID-TEST-MODE":
-            arg = f"""<mode>ANDROID-TEST-MODE</mode>"""
-        cmd = self.create_cmd("SET-BOOT-MODE", arg)
+            flashlist += f"    <pt name={partition}>{partition}.img</pt>\n"
+        content = {
+            "arg": [
+                "<source_file>D:/scatter.xml</source_file>",
+                f"<flash_list>{flashlist}</flash_list>"
+            ]
+        }
+        cmd = self.create_cmd("WRITE-PARTITIONS", content)
         return cmd
 
     def cmd_set_rsc(self, key: str = "k6885v1_64[op01]"):
         # runtime_switchable_config
-        arg = f"""<key>{key}</key>
-        <source_file>ms-appdata:///local/RSC.bin</source_file>"""
-        cmd = self.create_cmd("SET-RSC", arg)
+        content = {
+            "arg": [
+                f"<key>{key}</key>",
+                "<source_file>ms-appdata:///local/RSC.bin</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("SET-RSC", content)
         return cmd
 
     def cmd_write_private_cert(self):
-        arg = f"""<source_file>ms-appdata:///local/cert.bin</source_file>"""
-        cmd = self.create_cmd("WRITE-PRIVATE-CERT", arg)
+        content = {
+            "arg": [
+                "<source_file>ms-appdata:///local/cert.bin</source_file>"
+            ]
+        }
+        cmd = self.create_cmd("WRITE-PRIVATE-CERT", content)
         return cmd
 
     def cmd_get_da_info(self, mem_offset: int = 0x2000000, mem_length: int = 0x20000):
-        arg = f"""<target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"""
-        cmd = self.create_cmd("GET-DA-INFO", arg)
-        resp = """
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version><command>CMD:UPLOAD-FILE</command><arg><checksum>CHK_NO</checksum><info>WriteLocalFile</info><target_file>%s</target_file><packet_length>0x%x</packet_length></arg></host>
-        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_info><version>1.0</version><da_version>2021</da_version><build>May 24 2022:19:03:56</build></da_info>"
+        content = {
+            "arg": [
+                f"<target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("GET-DA-INFO", content)
+        # resp =
+        """
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><host><version>1.0</version>
+        <command>CMD:UPLOAD-FILE</command><arg><checksum>CHK_NO</checksum><info>WriteLocalFile</info>
+        <target_file>%s</target_file><packet_length>0x%x</packet_length></arg></host>
+        <?xml version=\"1.0\" encoding=\"utf-8\"?><da_info><version>1.0</version>
+        <da_version>2021</da_version><build>May 24 2022:19:03:56</build></da_info>"
         OK
         OK@0x%x
         """
         return cmd
 
-    def cmd_get_sys_property(self, key="DA.SLA", host_mem_offset:int=0x7fe83c138700, length=0x200000):
+    def cmd_get_sys_property(self, key="DA.SLA", host_mem_offset: int = 0x7fe83c138700, length=0x200000):
         """
         <?xml version="1.0" encoding="utf-8"?>
         <da>
@@ -372,23 +570,37 @@ class XMLCmd(metaclass=LogBase):
             </arg>
         </da>
         """
-        arg = f"""<key>{key}</key>
-        <target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"""
-        cmd = self.create_cmd("GET-SYS-PROPERTY", arg)
+        content = {
+            "arg": [
+                f"<key>{key}</key>",
+                f"<target_file>MEM://{hex(host_mem_offset)}:{hex(length)}</target_file>"
+            ]
+        }
+        cmd = self.create_cmd("GET-SYS-PROPERTY", content)
         return cmd
 
     def cmd_set_host_info(self, hostinfo: str = ""):
         """
-        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version><command>CMD:SET-HOST-INFO</command><arg><info>20230901T234721</info></arg></da>
+        <?xml version="1.0" encoding="utf-8"?><da><version>1.0</version>
+        <command>CMD:SET-HOST-INFO</command>
+        <arg><info>20230901T234721</info></arg>
         """
         if hostinfo == "":
-            currentDateAndTime = datetime.datetime.now()
-            hostinfo = currentDateAndTime.strftime("%Y%m%dT%H%M%S")
-        arg = f"""<info>{hostinfo}</info>"""
-        cmd = self.create_cmd("SET-HOST-INFO", arg)
+            current_date_and_time = datetime.datetime.now()
+            hostinfo = current_date_and_time.strftime("%Y%m%dT%H%M%S")
+        content = {
+            "arg": [
+                f"<info>{hostinfo}</info>",
+            ]
+        }
+        cmd = self.create_cmd("SET-HOST-INFO", content)
         return cmd
 
     def cmd_get_downloaded_image_feedback(self, mem_offset: int = 0x2000000, mem_length: int = 0x20000):
-        arg = f"""<target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>"""
-        cmd = self.create_cmd("GET-DOWNLOADED-IMAGE-FEEDBACK", arg)
+        content = {
+            "arg": [
+                f"<target_file>MEM://{hex(mem_offset)}:{hex(mem_length)}</target_file>",
+            ]
+        }
+        cmd = self.create_cmd("GET-DOWNLOADED-IMAGE-FEEDBACK", content)
         return cmd

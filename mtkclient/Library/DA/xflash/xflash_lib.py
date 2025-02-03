@@ -1,28 +1,37 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# (c) B.Kerler 2018-2023 GPLv3 License
+# (c) B.Kerler 2018-2024 GPLv3 License
 import logging
 import time
 import os
+import sys
 from binascii import hexlify
 from struct import pack, unpack
 
+from Cryptodome.Util.number import bytes_to_long, long_to_bytes
+
+from mtkclient.Library.Auth.sla import generate_da_sla_signature
 from mtkclient.Library.DA.xflash.xflash_flash_param import NandExtension
 from mtkclient.Library.DA.xflash.xflash_param import Cmd, ChecksumAlgorithm, FtSystemOSE, DataType
 from mtkclient.Library.utils import LogBase, logsetup
 from mtkclient.Library.error import ErrorHandler
-from mtkclient.Library.DA.daconfig import EMMC_PartitionType, UFS_PartitionType, DaStorage
+from mtkclient.Library.DA.daconfig import EmmcPartitionType, UFSPartitionType, DaStorage, DAconfig
 from mtkclient.Library.partition import Partition
-from mtkclient.config.payloads import pathconfig
-from mtkclient.Library.DA.xflash.extension.xflash import xflashext, XCmd
-from mtkclient.Library.settings import hwparam
-from mtkclient.Library.thread_handling import writedata, Queue, Thread
+from mtkclient.config.payloads import PathConfig
+from mtkclient.Library.DA.xflash.extension.xflash import XFlashExt, XCmd
+from mtkclient.Library.settings import HwParam
+from mtkclient.Library.thread_handling import writedata
+from queue import Queue
+from threading import Thread
+
 rq = Queue()
 
 
 class DAXFlash(metaclass=LogBase):
     def __init__(self, mtk, daconfig, loglevel=logging.INFO):
-        self.__logger = logsetup(self, self.__logger, loglevel, mtk.config.gui)
+        self.daversion = None
+        self.__logger, self.info, self.debug, self.warning, self.error = logsetup(self, self.__logger,
+                                                                                  loglevel, mtk.config.gui)
         self.Cmd = Cmd()
         self.ChecksumAlgorithm = ChecksumAlgorithm()
         self.FtSystemOSE = FtSystemOSE()
@@ -49,14 +58,28 @@ class DAXFlash(metaclass=LogBase):
         self.rword = self.mtk.port.rword
         self.daconfig = daconfig
         self.partition = Partition(self.mtk, self.readflash, self.read_pmt, loglevel)
-        self.pathconfig = pathconfig()
+        self.pathconfig = PathConfig()
         self.patch = False
         self.generatekeys = self.mtk.config.generatekeys
         if self.generatekeys:
             self.patch = True
-        self.xft = xflashext(self.mtk, self, loglevel)
+        self.xft = XFlashExt(self.mtk, self, loglevel)
 
-    def usleep(self, usec):
+        try:
+            from mtkclient.Library.Exploit.kamakiripl import KamakiriPl
+            # self.kamakiri_pl = KamakiriPl(self.mtk, loglevel)
+            self.kamakiri_pl = None
+        except Exception:
+            self.kamakiri_pl = None
+
+        try:
+            from mtkclient.Library.Exploit.carbonara import Carbonara
+            self.carbonara = Carbonara(self.mtk, loglevel)
+        except Exception:
+            self.carbonara = None
+
+    @staticmethod
+    def usleep(usec):
         time.sleep(usec / 100000)
 
     def ack(self, rstatus=True):
@@ -69,7 +92,7 @@ class DAXFlash(metaclass=LogBase):
                 status = self.status()
                 return status
             return True
-        except:
+        except Exception:
             return -1
 
     def xsend(self, data, datatype=DataType.DT_PROTOCOL_FLOW, is64bit: bool = False):
@@ -92,7 +115,7 @@ class DAXFlash(metaclass=LogBase):
             hdr = self.usbread(4 + 4 + 4)
             magic, datatype, length = unpack("<III", hdr)
         except Exception as err:
-            self.error("xread error: " + str(err))
+            self.error(f"xread error: {str(err)}")
             return -1
         if magic != 0xFEEEEEEF:
             self.error("xread error: Wrong magic")
@@ -131,7 +154,7 @@ class DAXFlash(metaclass=LogBase):
         return status
 
     def read_pmt(self) -> tuple:
-        return b"", []
+        return self.partition.get_pmt()
 
     def send_param(self, params):
         if isinstance(params, bytes):
@@ -178,7 +201,7 @@ class DAXFlash(metaclass=LogBase):
         return self.send_devctrl(self.Cmd.SET_RESET_KEY, param)
 
     def set_meta(self, porttype="off"):
-        class mtk_boot_mode_flag:
+        class MtkBootModeFlag:
             boot_mode = b"\x00"  # 0:normal, 1:meta
             com_type = b"\x00"  # 0:unknown, 1:uart, 2:usb
             com_id = b"\x00"  # 0:single interface device (meta,adb)
@@ -204,7 +227,7 @@ class DAXFlash(metaclass=LogBase):
             def get(self):
                 return self.boot_mode + self.com_type + self.com_id
 
-        metamode = mtk_boot_mode_flag(porttype).get()
+        metamode = MtkBootModeFlag(porttype).get()
         return self.send_devctrl(self.Cmd.SET_META_BOOT_MODE, metamode)
 
     def set_checksum_level(self, checksum_level=0x0):
@@ -226,10 +249,10 @@ class DAXFlash(metaclass=LogBase):
                     if self.xsend(pack("<I", len(emi))):
                         try:
                             if self.send_param([emi]):
-                                self.info(f"DRAM setup passed.")
+                                self.info("DRAM setup passed.")
                                 return True
                         except Exception as err:
-                            self.info(f"DRAM setup failed: %s" % str(err))
+                            self.info(f"DRAM setup failed: {str(err)}")
                             return False
                 except Exception as err:
                     self.error(f"Error on sending emi: {str(err)}")
@@ -247,41 +270,53 @@ class DAXFlash(metaclass=LogBase):
                 if self.usbwrite(data[pos:pos + 64]):
                     pos += 64
                     bytestowrite -= 64
-            status = self.status()
+            status = self.status()  # 0xC0070004
             if status == 0x0:
                 return True
             else:
                 self.error(f"Error on sending data: {self.eh.status(status)}")
                 return False
 
-    def boot_to(self, at_address, da, display=True, timeout=0.5):  # =0x40000000
+    def boot_to(self, addr, da, display=True, timeout=0.5):  # =0x40000000
         if self.xsend(self.Cmd.BOOT_TO):
             if self.status() == 0:
-                param = pack("<QQ", at_address, len(da))
+                param = pack("<QQ", addr, len(da))
                 pkt1 = pack("<III", self.Cmd.MAGIC, self.DataType.DT_PROTOCOL_FLOW, len(param))
                 if self.usbwrite(pkt1):
                     if self.usbwrite(param):
                         if self.send_data(da):
-                            if at_address == 0x68000000:
-                                self.info(f"Extensions were accepted. Jumping to extensions...")
+                            if addr == 0x68000000:
+                                if display:
+                                    self.info("Extensions were accepted. Jumping to extensions...")
                             else:
-                                self.info(f"Upload data was accepted. Jumping to stage 2...")
+                                if display:
+                                    self.info("Upload data was accepted. Jumping to stage 2...")
                             if timeout:
                                 time.sleep(timeout)
                             status = -1
                             try:
                                 status = self.status()
-                            except:
+                            except Exception:
                                 if status == -1:
-                                    self.error(f"Stage was't executed. Maybe dram issue ?.")
+                                    self.error("Stage was't executed. Maybe dram issue ?.")
                                     return False
                                 self.error(f"Error on boot to: {self.eh.status(status)}")
                                 return False
 
                             if status == 0x434E5953 or status == 0x0:
+                                if display:
+                                    self.info(f"Boot to succeeded.")
                                 return True
                             else:
-                                self.error(f"Error on boot to: {self.eh.status(status)}")
+                                self.error(f"Error on boot to: {self.eh.status(status)}, addr: {hex(addr)}")
+                        else:
+                            self.error(f"Error on boot to send_data, addr: {hex(addr)}")
+                    else:
+                        self.error(f"Error on boot usbwrite, addr: {hex(addr)}")
+                else:
+                    self.error(f"Error on boot usbwrite, addr: {hex(addr)}")
+            else:
+                self.error(f"Error on boot to, addr: {hex(addr)}")
         return False
 
     def get_connection_agent(self):
@@ -307,75 +342,76 @@ class DAXFlash(metaclass=LogBase):
         if storage == DaStorage.MTK_DA_STORAGE_EMMC or storage == DaStorage.MTK_DA_STORAGE_SDMMC:
             storage = 1
             if parttype is None or parttype == "user":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_USER
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_USER
             elif parttype == "boot1":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_BOOT1
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_BOOT1
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.boot1_size)
             elif parttype == "boot2":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_BOOT2
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_BOOT2
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.boot2_size)
             elif parttype == "gp1":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_GP1
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_GP1
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.gp1_size)
             elif parttype == "gp2":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_GP2
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_GP2
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.gp2_size)
             elif parttype == "gp3":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_GP3
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_GP3
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.gp3_size)
             elif parttype == "gp4":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_GP4
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_GP4
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.gp4_size)
             elif parttype == "rpmb":
-                parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_RPMB
+                parttype = EmmcPartitionType.MTK_DA_EMMC_PART_RPMB
                 if self.daconfig.flashtype == "emmc":
                     length = min(length, self.emmc.rpmb_size)
             else:
-                self.error("Unknown parttype. Known parttypes are \"boot1\",\"boot2\",\"gp1\"," +
-                           "\"gp2\",\"gp3\",\"gp4\",\"rpmb\"")
+                self.error('Unknown parttype. Known parttypes are "boot1","boot2","gp1","gp2","gp3","gp4","rpmb"')
                 return []
         elif storage == DaStorage.MTK_DA_STORAGE_UFS:
             if parttype is None or parttype == "lu3" or parttype == "user":  # USER
-                parttype = UFS_PartitionType.UFS_LU3
+                parttype = UFSPartitionType.UFS_LU3
                 length = min(length, self.ufs.lu0_size)
             elif parttype in ["lu1", "boot1"]:  # BOOT1
-                parttype = UFS_PartitionType.UFS_LU1
+                parttype = UFSPartitionType.UFS_LU1
                 length = min(length, self.ufs.lu1_size)
             elif parttype in ["lu2", "boot2"]:  # BOOT2
-                parttype = UFS_PartitionType.UFS_LU2
+                parttype = UFSPartitionType.UFS_LU2
                 length = min(length, self.ufs.lu2_size)
             elif parttype in ["lu4", "rpmb"]:  # RPMB
-                parttype = UFS_PartitionType.UFS_LU4
+                parttype = UFSPartitionType.UFS_LU4
                 length = min(length, self.ufs.lu2_size)
             else:
-                self.error("Unknown parttype. Known parttypes are \"lu1\",\"lu2\",\"lu3\",\"lu4\"")
+                self.error('Unknown parttype. Known parttypes are "lu1","lu2","lu3","lu4"')
                 return []
         elif storage in [DaStorage.MTK_DA_STORAGE_NAND, DaStorage.MTK_DA_STORAGE_NAND_MLC,
                          DaStorage.MTK_DA_STORAGE_NAND_SLC, DaStorage.MTK_DA_STORAGE_NAND_TLC,
                          DaStorage.MTK_DA_STORAGE_NAND_SPI, DaStorage.MTK_DA_STORAGE_NAND_AMLC]:
-            parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_USER
+            parttype = EmmcPartitionType.MTK_DA_EMMC_PART_USER
             length = min(length, self.nand.total_size)
         elif storage in [DaStorage.MTK_DA_STORAGE_NOR, DaStorage.MTK_DA_STORAGE_NOR_PARALLEL,
                          DaStorage.MTK_DA_STORAGE_NOR_SERIAL]:
-            parttype = EMMC_PartitionType.MTK_DA_EMMC_PART_USER
+            parttype = EmmcPartitionType.MTK_DA_EMMC_PART_USER
             length = min(length, self.nor.available_size)
         return [storage, parttype, length]
 
     def formatflash(self, addr, length, storage=None,
                     parttype=None, display=False):
-        self.mtk.daloader.progress.clear()
+        if display:
+            self.mtk.daloader.progress.clear()
         part_info = self.getstorage(parttype, length)
         if not part_info:
             return False
         storage, parttype, length = part_info
-        self.info(f"Formatting addr {hex(addr)} with length {hex(length)}, please standby....")
-        self.mtk.daloader.progress.show_progress("Erasing", 0, length, True)
+        if display:
+            self.info(f"Formatting addr {hex(addr)} with length {hex(length)}, please standby....")
+            self.mtk.daloader.progress.show_progress("Erasing", 0, length, True)
         if self.xsend(self.Cmd.FORMAT):
             status = self.status()
             if status == 0:
@@ -393,8 +429,9 @@ class DAXFlash(metaclass=LogBase):
                         time.sleep(self.status() / 1000.0)
                         status = self.ack()
                     if status == 0x40040005:  # STATUS_COMPLETE
-                        self.mtk.daloader.progress.show_progress("Erasing", length, length, True)
-                        self.info(f"Successsfully formatted addr {hex(addr)} with length {length}.")
+                        if display:
+                            self.mtk.daloader.progress.show_progress("Erasing", length, length, True)
+                            self.info(f"Successsfully formatted addr {hex(addr)} with length {length}.")
                         return True
 
             if status != 0x0:
@@ -403,13 +440,15 @@ class DAXFlash(metaclass=LogBase):
 
     def get_da_version(self):
         data = self.send_devctrl(self.Cmd.GET_DA_VERSION)
-        status = self.status()
-        if status == 0:
-            self.info(f"DA-VERSION      : {data.decode('utf-8')}")
-            return data
-        else:
-            self.error(f"Error on getting chip id: {self.eh.status(status)}")
-            return None
+        if data != b"":
+            status = self.status()
+            if status == 0:
+                self.info(f"DA-VERSION      : {data.decode('utf-8')}")
+                return data
+            else:
+                self.error(f"Error on getting chip id: {self.eh.status(status)}")
+                return None
+        return None
 
     def get_chip_id(self):
         class Chipid:
@@ -421,19 +460,19 @@ class DAXFlash(metaclass=LogBase):
 
         chipid = Chipid
         data = self.send_devctrl(self.Cmd.GET_CHIP_ID)
-        chipid.hw_code, chipid.hw_sub_code, chipid.hw_version, chipid.sw_version, chipid.chip_evolution = unpack(
-            "<HHHHH",
-            data[:(5 * 2)])
-        status = self.status()
-        if status == 0:
-            self.info("HW-CODE         : 0x%X" % chipid.hw_code)
-            self.info("HWSUB-CODE      : 0x%X" % chipid.hw_sub_code)
-            self.info("HW-VERSION      : 0x%X" % chipid.hw_version)
-            self.info("SW-VERSION      : 0x%X" % chipid.sw_version)
-            self.info("CHIP-EVOLUTION  : 0x%X" % chipid.chip_evolution)
-            return chipid
-        else:
-            self.error(f"Error on getting chip id: {self.eh.status(status)}")
+        if data != b"":
+            chipid.hw_code, chipid.hw_sub_code, chipid.hw_version, chipid.sw_version, chipid.chip_evolution = (
+                unpack("<HHHHH", data[:(5 * 2)]))
+            status = self.status()
+            if status == 0:
+                self.info("HW-CODE         : 0x%X" % chipid.hw_code)
+                self.info("HWSUB-CODE      : 0x%X" % chipid.hw_sub_code)
+                self.info("HW-VERSION      : 0x%X" % chipid.hw_version)
+                self.info("SW-VERSION      : 0x%X" % chipid.sw_version)
+                self.info("CHIP-EVOLUTION  : 0x%X" % chipid.chip_evolution)
+                return chipid
+            else:
+                self.error(f"Error on getting chip id: {self.eh.status(status)}")
         return None
 
     def get_ram_info(self):
@@ -486,7 +525,7 @@ class DAXFlash(metaclass=LogBase):
             emmc.type, emmc.block_size = unpack("<II", resp[pos:pos + 8])
             pos += 8
             emmc.boot1_size, emmc.boot2_size, emmc.rpmb_size, emmc.gp1_size, emmc.gp2_size, emmc.gp3_size, \
-            emmc.gp4_size, emmc.user_size = unpack("<QQQQQQQQ", resp[pos:pos + (8 * 8)])
+                emmc.gp4_size, emmc.user_size = unpack("<QQQQQQQQ", resp[pos:pos + (8 * 8)])
             pos += 8 * 8
             emmc.cid = resp[pos:pos + (4 * 4)]
             pos += (4 * 4)
@@ -497,7 +536,7 @@ class DAXFlash(metaclass=LogBase):
                 self.info(f"EMMC FWVer:      {hex(emmc.fwver)}")
                 try:
                     self.info(f"EMMC ID:         {emmc.cid[3:9].decode('utf-8')}")
-                except:
+                except Exception:
                     pass
                 self.info(f"EMMC CID:        {hexlify(emmc.cid).decode('utf-8')}")
                 if self.config.hwparam is not None:
@@ -560,7 +599,7 @@ class DAXFlash(metaclass=LogBase):
         status = self.status()
         if status == 0:
             return resp
-        
+
     def get_nor_info(self, display=True):
         resp = self.send_devctrl(self.Cmd.GET_NOR_INFO)
         if resp == b'':
@@ -598,20 +637,21 @@ class DAXFlash(metaclass=LogBase):
                 cid = b""
                 fwver = b""
                 serial = b""
+
             ufs = UfsInfo()
             ufs.type, ufs.block_size, ufs.lu2_size, ufs.lu1_size, ufs.lu0_size = unpack("<IIQQQ",
                                                                                         resp[:(2 * 4) + (3 * 8)])
             pos = (2 * 4) + (3 * 8)
             buf = resp[pos:]
             ufs.cid = buf[:16]
-            ufs.fwver = buf[22:22+4]
-            ufs.serial = buf[30:30+0xC]
+            ufs.fwver = buf[22:22 + 4]
+            ufs.serial = buf[30:30 + 0xC]
             if ufs.type != 0:
                 if display:
                     self.info(f"UFS Blocksize:{hex(ufs.block_size)}")
                     try:
                         self.info(f"UFS ID:       {ufs.cid[2:].decode('utf-8')}")
-                    except:
+                    except Exception:
                         pass
                     self.info(f"UFS MID:      {hex(ufs.cid[0])}")
                     self.info(f"UFS CID:      {hexlify(ufs.cid).decode('utf-8')}")
@@ -621,7 +661,7 @@ class DAXFlash(metaclass=LogBase):
                     self.info(f"UFS LU1 Size: {hex(ufs.lu1_size)}")
                     self.info(f"UFS LU2 Size: {hex(ufs.lu2_size)}")
                 if self.config.hwparam is not None:
-                    self.config.set_cid(buf[:0x11+2]+buf[0x16:0x16+4+1]+buf[0x1E:0x1E+0xC])
+                    self.config.set_cid(buf[:0x11 + 2] + buf[0x16:0x16 + 4 + 1] + buf[0x1E:0x1E + 0xC])
                 self.mtk.config.pagesize = ufs.block_size
                 self.mtk.daloader.daconfig.pagesize = ufs.block_size
             return ufs
@@ -676,6 +716,17 @@ class DAXFlash(metaclass=LogBase):
         else:
             return 0
 
+    def get_partition_table_category(self):
+        res = self.send_devctrl(self.Cmd.GET_PARTITION_TBL_CATA)
+        if res != b"":
+            value = unpack("<I", res)[0]
+            if value == 0x64:
+                return "GPT"
+            elif value == 0x65:
+                return "PMT"
+        else:
+            return 0
+
     def get_packet_length(self):
         resp = self.send_devctrl(self.Cmd.GET_PACKET_LENGTH)
         if resp != b"":
@@ -690,6 +741,17 @@ class DAXFlash(metaclass=LogBase):
                 return plen
             else:
                 self.error(f"Error on getting packet length: {self.eh.status(status)}")
+        return None
+
+    def get_sla_status(self):
+        resp = self.send_devctrl(self.Cmd.SLA_ENABLED_STATUS)
+        if resp != b"":
+            status = self.status()
+            if status == 0:
+
+                return int.from_bytes(resp, 'little')
+            else:
+                self.error(f"Error on getting sla enabled status: {self.eh.status(status)}")
         return None
 
     def get_usb_speed(self):
@@ -717,7 +779,7 @@ class DAXFlash(metaclass=LogBase):
         return False
 
     def cmd_write_data(self, addr, size, storage=DaStorage.MTK_DA_STORAGE_EMMC,
-                       parttype=EMMC_PartitionType.MTK_DA_EMMC_PART_USER):
+                       parttype=EmmcPartitionType.MTK_DA_EMMC_PART_USER):
         if self.xsend(self.Cmd.WRITE_DATA):
             status = self.status()
             if status == 0:
@@ -734,7 +796,7 @@ class DAXFlash(metaclass=LogBase):
         return False
 
     def cmd_read_data(self, addr, size, storage=DaStorage.MTK_DA_STORAGE_EMMC,
-                      parttype=EMMC_PartitionType.MTK_DA_EMMC_PART_USER):
+                      parttype=EmmcPartitionType.MTK_DA_EMMC_PART_USER):
         if self.xsend(self.Cmd.READ_DATA):
             status = self.status()
             if status == 0:
@@ -752,14 +814,16 @@ class DAXFlash(metaclass=LogBase):
                 self.error(f"Error on reading data: {self.eh.status(status)}")
         return False
 
-    def readflash(self, addr, length, filename, parttype=None, display=True) -> bytes:
+    def readflash(self, addr, length, filename, parttype=None, display=True) -> (bytes, bool):
         global rq
         partinfo = self.getstorage(parttype, length)
-        if not partinfo:
+        if not partinfo and not filename:
             return b""
+        elif not partinfo:
+            return False
         self.mtk.daloader.progress.clear()
         storage, parttype, length = partinfo
-        plen = self.get_packet_length()
+        self.get_packet_length()
         bytesread = 0
         if self.cmd_read_data(addr=addr, size=length, storage=storage, parttype=parttype):
             bytestoread = length
@@ -769,22 +833,28 @@ class DAXFlash(metaclass=LogBase):
                 worker.start()
                 while bytestoread > 0:
                     status = self.usbread(4 + 4 + 4)
-                    magic, datatype, slength = unpack("<III", status)
-                    if magic == 0xFEEEEEEF:
-                        resdata = self.usbread(slength)
-                        if slength > 4:
-                            rq.put(resdata)
-                            stmp = pack("<III", self.Cmd.MAGIC, self.DataType.DT_PROTOCOL_FLOW, 4)
-                            data = pack("<I", 0)
-                            self.usbwrite(stmp)
-                            self.usbwrite(data)
-                            bytestoread -= len(resdata)
-                            bytesread += len(resdata)
-                            if display:
-                                self.mtk.daloader.progress.show_progress("Read", bytesread, total, display)
-                        elif slength == 4:
-                            if unpack("<I", resdata)[0] != 0:
-                                break
+                    try:
+                        magic, datatype, slength = unpack("<III", status)
+                        if magic == 0xFEEEEEEF:
+                            resdata = self.usbread(slength, w_max_packet_size=slength)
+                            if slength > 4:
+                                rq.put(resdata)
+                                stmp = pack("<III", self.Cmd.MAGIC, self.DataType.DT_PROTOCOL_FLOW, 4)
+                                data = pack("<I", 0)
+                                self.usbwrite(stmp)
+                                self.usbwrite(data)
+                                bytestoread -= len(resdata)
+                                bytesread += len(resdata)
+                                if display:
+                                    self.mtk.daloader.progress.show_progress("Read", bytesread, total, display)
+                            elif slength == 4:
+                                if unpack("<I", resdata)[0] != 0:
+                                    break
+                            else:
+                                print("Error: Invalid slength")
+                    except:
+                        print("Error: Timeout")
+
                 status = self.usbread(4 + 4 + 4)
                 magic, datatype, slength = unpack("<III", status)
                 if magic == 0xFEEEEEEF:
@@ -795,10 +865,10 @@ class DAXFlash(metaclass=LogBase):
                                 self.mtk.daloader.progress.show_progress("Read", total, total, display)
                             rq.put(None)
                             worker.join(60)
-                            return b""
+                            return True
                 rq.put(None)
                 worker.join(60)
-                return bytearray()
+                return True
             else:
                 buffer = bytearray()
                 while length > 0:
@@ -813,7 +883,9 @@ class DAXFlash(metaclass=LogBase):
                 if display:
                     self.mtk.daloader.progress.show_progress("Read", total, total, display)
                 return buffer
-        return b""
+        if filename != b"":
+            return b""
+        return False
 
     class ShutDownModes:
         NORMAL = 0
@@ -826,7 +898,7 @@ class DAXFlash(metaclass=LogBase):
             if status == 0:
                 hasflags = 0
                 # bootmode 0: shutdown 1: home screen, 2: fastboot
-                if async_mode or dl_bit or bootmode > 0:
+                if async_mode or dl_bit or bootmode != self.ShutDownModes.NORMAL:
                     hasflags = 1
                 enablewdt = 0  # Disable wdt
                 dont_resetrtc = 0  # Reset RTC
@@ -849,8 +921,8 @@ class DAXFlash(metaclass=LogBase):
             storage = DaStorage.MTK_DA_STORAGE_NAND
         elif self.daconfig.flashtype == "ufs":
             storage = DaStorage.MTK_DA_STORAGE_UFS
-            if parttype == EMMC_PartitionType.MTK_DA_EMMC_PART_USER:
-                parttype = UFS_PartitionType.UFS_LU3
+            if parttype == EmmcPartitionType.MTK_DA_EMMC_PART_USER:
+                parttype = UFSPartitionType.UFS_LU3
         elif self.daconfig.flashtype == "sdc":
             storage = DaStorage.MTK_DA_STORAGE_SDMMC
         else:
@@ -859,11 +931,11 @@ class DAXFlash(metaclass=LogBase):
         part_info = self.partitiontype_and_size(storage, parttype, length)
         return part_info
 
-    def writeflash(self, addr, length, filename, offset=0, parttype=None, wdata=None, display=True):
+    def writeflash(self, addr, length, filename: str = "", offset=0, parttype=None, wdata=None, display=True):
         self.mtk.daloader.progress.clear()
         fh = None
         fill = 0
-        if filename is not None:
+        if filename != "":
             if os.path.exists(filename):
                 fsize = os.stat(filename).st_size
                 length = min(fsize, length)
@@ -950,6 +1022,23 @@ class DAXFlash(metaclass=LogBase):
                 return True
         return False
 
+    def patch_da(self, da1, da2):
+        da1sig_len = self.daconfig.da_loader.region[1].m_sig_len
+        # ------------------------------------------------
+        da2sig_len = self.daconfig.da_loader.region[2].m_sig_len
+        hashaddr, hashmode, hashlen = self.mtk.daloader.compute_hash_pos(da1, da2, da1sig_len, da2sig_len,
+                                                                         self.daconfig.da_loader.v6)
+        if hashaddr is not None:
+            da1 = self.xft.patch_da1(da1)
+            da2 = self.xft.patch_da2(da2)
+            da1 = self.mtk.daloader.fix_hash(da1, da2, hashaddr, hashmode, hashlen)
+            self.patch = True
+            self.daconfig.da2 = da2[:hashlen]
+        else:
+            self.patch = False
+            self.daconfig.da2 = da2[:-da2sig_len]
+        return da1, da2
+
     def upload_da1(self):
         if self.daconfig.da_loader is None:
             self.error("No valid da loader found... aborting.")
@@ -964,7 +1053,6 @@ class DAXFlash(metaclass=LogBase):
             da1offset = self.daconfig.da_loader.region[1].m_buf
             da1size = self.daconfig.da_loader.region[1].m_len
             da1address = self.daconfig.da_loader.region[1].m_start_addr
-            da2address = self.daconfig.da_loader.region[1].m_start_addr
             da1sig_len = self.daconfig.da_loader.region[1].m_sig_len
             bootldr.seek(da1offset)
             da1 = bootldr.read(da1size)
@@ -973,17 +1061,11 @@ class DAXFlash(metaclass=LogBase):
             da2sig_len = self.daconfig.da_loader.region[2].m_sig_len
             bootldr.seek(da2offset)
             da2 = bootldr.read(self.daconfig.da_loader.region[2].m_len)
-
-            hashaddr, hashmode, hashlen = self.mtk.daloader.compute_hash_pos(da1, da2, da2sig_len)
-            if hashaddr is not None:
-                da1 = self.xft.patch_da1(da1)
-                da2 = self.xft.patch_da2(da2)
-                da1 = self.mtk.daloader.fix_hash(da1, da2, hashaddr, hashmode, hashlen)
-                self.patch = True
-                self.daconfig.da2 = da2[:hashlen]
+            if self.patch or not self.config.target_config["sbc"] and not self.config.stock:
+                da1, da2 = self.patch_da(da1, da2)
             else:
+                self.patch = False
                 self.daconfig.da2 = da2[:-da2sig_len]
-
             if self.mtk.preloader.send_da(da1address, da1size, da1sig_len, da1):
                 self.info("Successfully uploaded stage 1, jumping ..")
                 if self.mtk.preloader.jump_da(da1address):
@@ -993,6 +1075,8 @@ class DAXFlash(metaclass=LogBase):
                         return False
                     else:
                         self.sync()
+                        # if self.kamakiri_pl is not None:
+                        #    self.kamakiri_pl.bypass2ndDA()
                         self.setup_env()
                         self.setup_hw_init()
                         res = self.xread()
@@ -1008,7 +1092,6 @@ class DAXFlash(metaclass=LogBase):
         return False
 
     def reinit(self, display=False):
-        self.config.hwparam = hwparam(self.config.meid, self.config.hwparam_path)
         self.config.sram, self.config.dram = self.get_ram_info()
         self.emmc = self.get_emmc_info(display)
         self.nand = self.get_nand_info(display)
@@ -1054,7 +1137,37 @@ class DAXFlash(metaclass=LogBase):
             self.mtk.port.cdc.set_fast_mode(True)
             self.config.set_gui_status(self.config.tr("Connected to stage2 with higher speed"))
 
+    def set_remote_sec_policy(self, data):
+        return self.send_devctrl(self.Cmd.SET_REMOTE_SEC_POLICY, data)
+
+    def handle_sla(self, da2):
+        rsakey = None
+        from mtkclient.Library.Auth.sla_keys import da_sla_keys
+        for key in da_sla_keys:
+            if da2.find(long_to_bytes(key.n)) != -1:
+                rsakey = key
+                break
+        if rsakey is None:
+            print("No valid sla key found, trying dummy auth ....")
+            sla_signature = b"\x00" * 0x100
+            if self.set_remote_sec_policy(data=sla_signature):
+                print("SLA Signature was accepted.")
+                return True
+        else:
+            res = self.get_dev_fw_info()
+            if res != b"":
+                data = res[4:4 + 0x10]
+                sla_signature = generate_da_sla_signature(data=data, key=rsakey.key)
+                if self.set_remote_sec_policy(data=sla_signature):
+                    print("SLA Signature was accepted.")
+                    return True
+        return False
+
     def upload_da(self):
+        if not self.mtk.daloader.patch:
+            if (self.kamakiri_pl is not None and not self.mtk.config.chipconfig.damode == 6 and
+                    self.mtk.config.target_config["sbc"]):
+                self.kamakiri_pl.initbrom()
         if self.upload_da1():
             self.get_expire_date()
             self.set_reset_key(0x68)
@@ -1069,14 +1182,13 @@ class DAXFlash(metaclass=LogBase):
                 if self.daconfig.emi is None:
                     emmc_info = self.get_emmc_info(False)
                     if emmc_info is not None and emmc_info.user_size != 0:
-                        self.info("DRAM config needed for : " + hexlify(emmc_info.cid[:8]).decode('utf-8'))
+                        self.info(f"DRAM config needed for : {hexlify(emmc_info.cid[:8]).decode('utf-8')}")
                     else:
                         ufs_info = self.get_ufs_info()
                         if ufs_info is not None and ufs_info.block_size != 0:
-                            self.info("DRAM config needed for : " + hexlify(ufs_info.cid).decode('utf-8'))
+                            self.info(f"DRAM config needed for : {hexlify(ufs_info.cid).decode('utf-8')}")
                     self.info("No preloader given. Searching for preloader")
                     found = False
-                    self.info("Sending emi data ...")
                     for root, dirs, files in os.walk(os.path.join(self.pathconfig.get_loader_path(), 'Preloader')):
                         for file in files:
                             with open(os.path.join(root, file), "rb") as rf:
@@ -1085,9 +1197,12 @@ class DAXFlash(metaclass=LogBase):
                                     if emmc_info.cid[:8] in data:
                                         preloader = os.path.join(root, file)
                                         self.daconfig.extract_emi(preloader)
+                                        self.info("Sending emi data ...")
                                         if not self.send_emi(self.daconfig.emi):
+                                            self.info("Emi data NOT accepted ...")
                                             continue
                                         else:
+                                            self.info("Emi data accepted ...")
                                             found = True
                                             self.info("Detected working preloader: " + preloader)
                                             break
@@ -1107,32 +1222,77 @@ class DAXFlash(metaclass=LogBase):
                 stage = 1
             if stage == 1:
                 self.info("Uploading stage 2...")
-                with open(self.daconfig.loader, 'rb') as bootldr:
-                    stage = stage + 1
+                stage = stage + 1
+                loaded = False
+                if not self.mtk.daloader.patch and not self.mtk.config.stock and connagent == b"preloader":
                     loaded = self.boot_to(self.daconfig.da_loader.region[stage].m_start_addr, self.daconfig.da2)
-                    if loaded:
-                        self.info("Successfully uploaded stage 2")
-                        self.reinit(True)
-                        self.config.hwparam.writesetting("hwcode", hex(self.config.hwcode))
-
-                        daextdata = self.xft.patch()
-                        if daextdata is not None:
-                            self.daext = False
-                            if self.boot_to(at_address=0x68000000, da=daextdata):
-                                ret = self.send_devctrl(XCmd.CUSTOM_ACK)
-                                status = self.status()
-                                if status == 0x0 and unpack("<I", ret)[0] == 0xA1A2A3A4:
-                                    self.info("DA Extensions successfully added")
-                                    self.daext = True
-                            if not self.daext:
-                                self.warning("DA Extensions failed to enable")
-
-                            if self.generatekeys:
-                                self.xft.generate_keys()
-                        return True
+                if not loaded:
+                    loaded = self.boot_to(self.daconfig.da_loader.region[stage].m_start_addr, self.daconfig.da2)
+                if loaded:
+                    self.info("Successfully uploaded stage 2")
+                    sla_enabled = self.get_sla_status()
+                    if sla_enabled:
+                        self.info("DA SLA is enabled")
+                        if not self.handle_sla(self.daconfig.da2):
+                            self.error("Can't bypass DA SLA")
                     else:
-                        self.error("Error on booting to da (xflash)")
-                        return False
+                        self.info("DA SLA is disabled")
+                    self.reinit(True)
+                    daextdata = self.xft.patch()
+                    if daextdata is not None:
+                        self.daext = False
+                        if self.boot_to(addr=0x68000000, da=daextdata):
+                            ret = self.send_devctrl(XCmd.CUSTOM_ACK)
+                            status = self.status()
+                            if status == 0x0 and unpack("<I", ret)[0] == 0xA1A2A3A4:
+                                self.info("DA Extensions successfully added")
+                                self.daext = True
+                                self.xft.custom_set_storage(ufs=self.daconfig.flashtype == "ufs")
+                        if not self.daext:
+                            self.warning("DA Extensions failed to enable")
+
+                        if self.generatekeys:
+                            self.xft.generate_keys()
+                    return True
+                else:
+                    self.error("Error on booting to da (xflash)")
+                    return False
             else:
-                self.error("Didn't get brom connection, got instead: " + hexlify(connagent).decode('utf-8'))
+                self.error(f"Didn't get brom connection, got instead: {hexlify(connagent).decode('utf-8')}")
         return False
+
+
+def main():
+    from mtkclient.Library.mtk_class import Mtk
+    from mtkclient.config.mtk_config import MtkConfig
+    config = MtkConfig(logging.INFO)
+    config.init_hwcode(0x717)
+    config.hwver = 0xca00
+    config.swver = 0
+    mtk = Mtk(config=config, loglevel=logging.INFO,
+              serialportname=None)
+    daconfig = DAconfig(mtk=mtk, loader=mtk.config.loader,
+                        preloader=mtk.config.preloader, loglevel=logging.INFO)
+    daconfig.setup()
+    dax = DAXFlash(mtk, daconfig, loglevel=logging.INFO)
+    loader = daconfig.loader
+
+    print(f"Uploading xflash stage 1 from {os.path.basename(loader)}")
+    if not os.path.exists(loader):
+        print(f"Couldn't find {loader}, aborting.")
+        return False
+    with open(loader, 'rb') as bootldr:
+        # stage 1
+        da1offset = daconfig.da_loader.region[1].m_buf
+        da1size = daconfig.da_loader.region[1].m_len
+        bootldr.seek(da1offset)
+        da1 = bootldr.read(da1size)
+        # ------------------------------------------------
+        da2offset = daconfig.da_loader.region[2].m_buf
+        bootldr.seek(da2offset)
+        da2 = bootldr.read(daconfig.da_loader.region[2].m_len)
+        dax.patch_da(da1, da2)
+
+
+if __name__ == "__main__":
+    main()
