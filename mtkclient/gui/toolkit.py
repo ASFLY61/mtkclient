@@ -6,17 +6,18 @@ import datetime as dt
 from PySide6.QtCore import Signal, QThread, Slot, Property
 from PySide6.QtWidgets import QFileDialog, QCheckBox
 from traceback import print_exception
-from mtkclient.config.payloads import pathconfig
+from mtkclient.config.payloads import PathConfig
+
 
 class TimeEstim:
-    def calcProcessTime(self, starttime, cur_iter, max_iter):
+    @staticmethod
+    def calcProcessTime(starttime, cur_iter, max_iter):
         telapsed = time.time() - starttime
         if telapsed > 0 and cur_iter > 0:
             testimated = (telapsed / cur_iter) * max_iter
             finishtime = starttime + testimated
             finishtime = dt.datetime.fromtimestamp(finishtime).strftime("%H:%M:%S")  # in time
-            lefttime = testimated - telapsed  # in seconds
-            return int(telapsed), int(lefttime), finishtime
+            return int(telapsed), int(testimated - telapsed), finishtime
         else:
             return 0, 0, ""
 
@@ -33,14 +34,14 @@ class TimeEstim:
         if lefttime > 0:
             sec = lefttime
             if sec > 60:
-                min = sec // 60
+                minutes = sec // 60
                 sec = sec % 60
-                if min > 60:
-                    h = min // 24
-                    min = min % 24
-                    hinfo = "%02dh:%02dm:%02ds" % (h, min, sec)
+                if minutes > 60:
+                    h = minutes // 24
+                    minutes = minutes % 24
+                    hinfo = "%02dh:%02dm:%02ds" % (h, minutes, sec)
                 else:
-                    hinfo = "%02dm:%02ds" % (min, sec)
+                    hinfo = "%02dm:%02ds" % (minutes, sec)
             else:
                 hinfo = "%02ds" % sec
 
@@ -49,43 +50,45 @@ class TimeEstim:
         self.progtime = t0
         return hinfo
 
+
 class CheckBox(QCheckBox):
-    def __init__( self, *args ):
+    def __init__(self, *args):
         super(CheckBox, self).__init__(*args)
         self._readOnly = False
 
-    def isReadOnly( self ):
+    def isReadOnly(self):
         return self._readOnly
 
-    def mousePressEvent( self, event ):
+    def mousePressEvent(self, event):
         if self.isReadOnly():
             event.accept()
         else:
             super(CheckBox, self).mousePressEvent(event)
 
-    def mouseMoveEvent( self, event ):
+    def mouseMoveEvent(self, event):
         if self.isReadOnly():
             event.accept()
         else:
             super(CheckBox, self).mouseMoveEvent(event)
 
-    def mouseReleaseEvent( self, event ):
+    def mouseReleaseEvent(self, event):
         if self.isReadOnly():
             event.accept()
         else:
             super(CheckBox, self).mouseReleaseEvent(event)
 
-    def keyPressEvent( self, event ):
+    def keyPressEvent(self, event):
         if self.isReadOnly():
             event.accept()
         else:
             super(CheckBox, self).keyPressEvent(event)
 
     @Slot(bool)
-    def setReadOnly( self, state ):
+    def setReadOnly(self, state):
         self._readOnly = state
 
     readOnly = Property(bool, isReadOnly, setReadOnly)
+
 
 def convert_size(size_bytes):
     if size_bytes <= 0:
@@ -94,7 +97,7 @@ def convert_size(size_bytes):
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
-    return "%s %s" % (s, size_name[i])
+    return f"{s} {size_name[i]}"
 
 
 class asyncThread(QThread):
@@ -112,11 +115,12 @@ class asyncThread(QThread):
     def run(self):
         self.function(self, self.parameters)
 
-class FDialog():
+
+class FDialog:
     def __init__(self, parent):
-        pc = pathconfig()
+        pc = PathConfig()
         self.parent = parent
-        self.fdialog=QFileDialog(parent)
+        self.fdialog = QFileDialog(parent)
         self.lastpath = os.path.dirname(os.path.dirname(pc.scriptpath))
         self.fdialog.setDirectory(self.lastpath)
 
@@ -125,7 +129,7 @@ class FDialog():
         self.fdialog.setDirectory(self.lastpath)
         self.fdialog.selectFile(fname)
         ret = self.fdialog.getSaveFileName(self.parent, self.parent.tr("Select output file"), fname,
-                                          "Binary dump (*.bin)")
+                                           "Binary dump (*.bin)")
         if ret:
             fname = ret[0]
             if fname != "":
@@ -138,7 +142,7 @@ class FDialog():
         self.fdialog.setDirectory(self.lastpath)
         self.fdialog.selectFile(fname)
         ret = self.fdialog.getOpenFileName(self.parent, self.parent.tr("Select input file"),
-                                   fname, "Binary dump (*.bin)")
+                                           fname, "Binary dump (*.bin)")
         if ret:
             if isinstance(ret, tuple):
                 fname = os.path.normpath(ret[0])  # fixes backslash problem on windows
@@ -147,19 +151,20 @@ class FDialog():
                     return fname
         return None
 
-    def opendir(self,caption):
+    def opendir(self, caption):
         options = QFileDialog.Options()
         if sys.platform.startswith('freebsd') or sys.platform.startswith('linux'):
             options |= QFileDialog.DontUseNativeDialog
             options |= QFileDialog.DontUseCustomDirectoryIcons
         fname = os.path.join(self.lastpath)
         self.fdialog.setDirectory(self.lastpath)
-        fdir=self.fdialog.getExistingDirectory(self.parent, self.parent.tr(caption), fname, options=options)
-        fdir = os.path.normpath(fdir) #fixes backslash problem on windows
+        fdir = self.fdialog.getExistingDirectory(self.parent, self.parent.tr(caption), fname, options=options)
+        fdir = os.path.normpath(fdir)  # fixes backslash problem on windows
         if fdir != "" and fdir != ".":
             self.lastpath = fdir
             return fdir
         return None
+
 
 def trap_exc_during_debug(type_, value, traceback):
     print(print_exception(type_, value, traceback), flush=True)

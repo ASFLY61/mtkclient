@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# (c) B.Kerler 2018-2023 GPLv3 License
+# (c) B.Kerler 2018-2024 GPLv3 License
 ErrorCodes = {
     0x0: "OK",
     # COMMON
@@ -439,7 +439,7 @@ ErrorCodes = {
     0x1D00: "ADDRESS_TOO_HIGH_80000000",
     0x1D01: "ADDRESS_TOO_HIGH_40000000",
     0x1D02: "INVALID_ADDRESS",
-    0x1D0C: "",
+    0x1D0C: "NO_AUTH_NEEDED",
     0x1D0D: "SLA_ERROR",
     0x1D0E: "DA_OVERLAP",
     0x1D0F: "DA_INVALID_JUMP_ADDR",
@@ -486,8 +486,13 @@ ErrorCodes = {
     0x5002: "IMG_LOCK_NO_SPACE_ADD_LOCK_INFO",
     0x5003: "IMG_LOCK_THIS_IMG_INFO_NOT_EXIST",
     0x5004: "IMG_LOCK_MAGIC_ERROR",
+    0x5A5B: "DA_IN_BLACKLIST",
     0x6000: "SBC_KEY_NOT_FOUND",
     0x6001: "BR_SEC_CFG_NOT_FOUND",
+    0x6002: "ERR_PUBK_NOT_INITIALIZED",
+    0x6003: "SHA256_OP_FAIL",
+    0x6004: "ERR_PSS_CHK_FAIL",
+    0x6005: "ERR_SIG_CHK_FAIL",
     0x7000: "REGION_INVALID_INCLUDE",
     0x7001: "REGION_INVALID_OVERLAP",
     0x7002: "REGION_INVALID_OVERFLOW",
@@ -973,7 +978,8 @@ ErrorCodes_Legacy = {
     3232: "S_DA_UPDATE_BOOTLOADER_NOT_CONTAIN_CRITICAL_DATA",
     3233: "S_DA_DUMP_FLASH_LAYOUT_FAIL",
     3234: "S_DA_BMT_NO_INIT",
-    3235: "S_DA_NOR_PROGRAM_REGION_IS_OVERLAP"
+    3235: "S_DA_NOR_PROGRAM_REGION_IS_OVERLAP",
+    0x5A5B: "S_DA_IN_BLACKLIST"
 }
 
 
@@ -985,9 +991,9 @@ class ErrorHandler:
 
     def status(self, status):
         if status in self.ec:
-            return self.ec[status] + " (" + hex(status) + ")"
+            return f"{self.ec[status]} ({hex(status)})"
         if status in self.xec:
-            return self.xec[status] + " (" + hex(status) + ")"
+            return f"{self.xec[status]} ({hex(status)})"
         if status in self.lec:
-            return self.lec[status] + " (" + hex(status) + ")"
-        return "Unknown: " + hex(status)
+            return f"{self.lec[status]} ({hex(status)})"
+        return f"Unknown: {hex(status)}"

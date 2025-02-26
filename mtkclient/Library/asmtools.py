@@ -1,8 +1,19 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-#(c) B.Kerler 2018-2023 GPLv3 License
-from capstone import *
-from keystone import *
+# (c) B.Kerler 2018-2024 GPLv3 License
+from capstone import (Cs, CS_MODE_BIG_ENDIAN, CS_MODE_LITTLE_ENDIAN,
+                      CS_ARCH_ARM, CS_ARCH_ARM64, CS_ARCH_MIPS,
+                      CS_ARCH_X86, CS_ARCH_SPARC, CS_ARCH_SYSZ, CS_ARCH_XCORE,
+                      CS_MODE_ARM, CS_MODE_THUMB, CS_MODE_V8, CS_MODE_V9,
+                      CS_MODE_MCLASS, CS_MODE_MICRO, CS_MODE_MIPS32, CS_MODE_MIPS64,
+                      CS_MODE_MIPS32R6, CS_MODE_16, CS_MODE_32, CS_MODE_64)
+from keystone import (Ks, KS_MODE_BIG_ENDIAN, KS_MODE_LITTLE_ENDIAN, KS_ARCH_ARM, KS_MODE_THUMB, KS_MODE_ARM,
+                      KS_MODE_V8,
+                      KS_ARCH_ARM64, KS_ARCH_MIPS, KS_MODE_MICRO, KS_MODE_MIPS3, KS_MODE_MIPS32R6,
+                      KS_MODE_MIPS32, KS_MODE_MIPS64, KS_MODE_16, KS_MODE_32, KS_MODE_64, KS_ARCH_X86,
+                      KS_ARCH_PPC, KS_MODE_PPC32, KS_MODE_PPC64, KS_MODE_QPX,
+                      KS_ARCH_SPARC, KS_MODE_SPARC32, KS_MODE_SPARC64, KS_MODE_V9,
+                      KS_ARCH_SYSTEMZ, KS_ARCH_HEXAGON)
 import argparse
 
 
@@ -11,7 +22,7 @@ def asm(code, cpu, mode, bigendian):
         little = KS_MODE_BIG_ENDIAN  # big-endian mode
     else:
         little = KS_MODE_LITTLE_ENDIAN  # little-endian mode (default mode)
-    print("CPU: %s, MODE: %s" % (cpu, mode))
+    print(f"CPU: {cpu}, MODE: {mode}")
     ks = None
     if cpu == "arm":
         # ARM architecture (including Thumb, Thumb-2)
@@ -67,7 +78,7 @@ def asm(code, cpu, mode, bigendian):
     elif cpu == "hexagon":
         ks = Ks(KS_ARCH_HEXAGON, KS_MODE_LITTLE_ENDIAN)  # QDSP6 Hexagon Qualcomm
 
-    if (ks == None):
+    if ks is None:
         print("CPU and/or Mode not supported!")
         exit(0)
 
@@ -128,7 +139,7 @@ def disasm(code, cpu, mode, bigendian, size):
     elif cpu == "xcore":
         cs = Cs(CS_ARCH_XCORE, 0)  # XCore architecture
 
-    if (cs == None):
+    if cs is None:
         print("CPU and/or mode not supported!")
         exit(0)
 
@@ -164,12 +175,14 @@ def main():
 
     parser.add_argument(
         '--disasm', '-disasm',
-        help='Disasm: arm[arm,thumb,mclass,v8],arm64[arm],mips[micro,3,32R6,GP64],x86[16,32,64],ppc[64],sparc[32,64,v9],systemz,xcore',
+        help='Disasm: arm[arm,thumb,mclass,v8],arm64[arm],mips[micro,3,32R6,GP64],' +
+             'x86[16,32,64],ppc[64],sparc[32,64,v9],systemz,xcore',
         default='')
 
     parser.add_argument(
         '--asm', '-asm',
-        help='Asm: arm[arm,thumb,mclass,v8],arm64[arm],mips[micro,32,64,32R6,32R6-Micro],x86[16,32,64],ppc[32,64,qpx],sparc[None,v9],systemz,hexagon',
+        help='Asm: arm[arm,thumb,mclass,v8],arm64[arm],mips[micro,32,64,32R6,32R6-Micro]' +
+             ',x86[16,32,64],ppc[32,64,qpx],sparc[None,v9],systemz,hexagon',
         default='')
 
     parser.add_argument(
@@ -183,7 +196,7 @@ def main():
         print("[asmtools] Usage: -asm cpu,mode or -disasm cpu,mode")
         exit(0)
 
-    if (args.infile == '' and args.inp == ''):
+    if not args.infile == '' and args.inp == '':
         print("[asmtools] I must have an infile to work on (-in) or a string input (--inp")
         exit(0)
 
@@ -241,4 +254,5 @@ def main():
         '''
 
 
-main()
+if __name__ == '__main__':
+    main()

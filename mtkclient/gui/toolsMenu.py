@@ -1,17 +1,19 @@
 from PySide6.QtCore import Slot, QObject, Signal
 from PySide6.QtWidgets import QTableWidgetItem
 from mtkclient.gui.toolkit import trap_exc_during_debug, asyncThread, FDialog
-from mtkclient.Library.DA.mtk_da_handler import DA_handler
+from mtkclient.Library.DA.mtk_da_handler import DaHandler
 import os
 import sys
 import json
+
 sys.excepthook = trap_exc_during_debug
+
 
 class UnlockMenu(QObject):
     enableButtonsSignal = Signal()
     disableButtonsSignal = Signal()
 
-    def __init__(self, ui, parent, da_handler: DA_handler, sendToLog):  # def __init__(self, *args, **kwargs):
+    def __init__(self, ui, parent, da_handler: DaHandler, sendToLog):  # def __init__(self, *args, **kwargs):
         super(UnlockMenu, self).__init__(parent)
         self.parent = parent
         self.ui = ui
@@ -40,7 +42,7 @@ class UnlockMenu(QObject):
     def UnlockAsync(self, toolkit, parameters):
         self.sendToLogSignal = toolkit.sendToLogSignal
         self.sendUpdateSignal = toolkit.sendUpdateSignal
-        toolkit.sendToLogSignal.emit(self.tr("Bootloader: ")+parameters[0])
+        toolkit.sendToLogSignal.emit(self.tr("Bootloader: ") + parameters[0])
         self.parent.Status["result"] = self.mtkClass.daloader.seccfg(parameters[0])
         self.parent.Status["done"] = True
         self.sendUpdateSignal.emit()
@@ -50,7 +52,7 @@ class generateKeysMenu(QObject):
     enableButtonsSignal = Signal()
     disableButtonsSignal = Signal()
 
-    def __init__(self, ui, parent, da_handler: DA_handler, sendToLog):  # def __init__(self, *args, **kwargs):
+    def __init__(self, ui, parent, da_handler: DaHandler, sendToLog):  # def __init__(self, *args, **kwargs):
         super(generateKeysMenu, self).__init__(parent)
         self.parent = parent
         self.ui = ui
@@ -73,7 +75,7 @@ class generateKeysMenu(QObject):
             if skey is not None:
                 self.ui.keytable.setItem(column, 0, QTableWidgetItem(key))
                 self.ui.keytable.setItem(column, 1, QTableWidgetItem(skey))
-                column+=1
+                column += 1
         self.sendToLogSignal.emit(self.tr("Keys generated!"))
         self.enableButtonsSignal.emit()
 
@@ -98,10 +100,8 @@ class generateKeysMenu(QObject):
         toolkit.sendToLogSignal.emit(self.tr("Generating keys"))
         res = self.mtkClass.daloader.keys()
         if res:
-            with open(os.path.join(parameters[0],"hwparam.json"),"w") as wf:
+            with open(os.path.join(parameters[0], "hwparam.json"), "w") as wf:
                 wf.write(json.dumps(res))
         self.parent.Status["result"] = res
         self.parent.Status["done"] = True
         self.sendUpdateSignal.emit()
-
-

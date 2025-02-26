@@ -1,25 +1,27 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# (c) B.Kerler 2018-2023 GPLv3 License
+# (c) B.Kerler 2018-2024 GPLv3 License
 import time
 import sys
 import logging
 from enum import Enum
 from mtkclient.Library.utils import LogBase, logsetup
 
+
 class META(metaclass=LogBase):
     class Mode(Enum):
         FASTBOOT = b"FASTBOOT"  # fastboot mode
-        META = b"METAMETA"      # MAUI META mode
+        META = b"METAMETA"  # MAUI META mode
         EMETA = b"ADVEMETA"  # Advanced META mode
-        FACT = b"FACTFACT"      # Factory menu
-        ATE  = b"FACTORYM"      # ATE Signaling Test
+        FACT = b"FACTFACT"  # Factory menu
+        ATE = b"FACTORYM"  # ATE Signaling Test
         READY = b"READY"
         ATNBOOT = b"AT+NBOOT"
 
     def __init__(self, mtk, loglevel=logging.INFO):
         self.mtk = mtk
-        self.__logger = logsetup(self, self.__logger, loglevel, mtk.config.gui)
+        self.__logger, self.info, self.debug, self.warning, self.error = logsetup(self, self.__logger, 
+                                                                                  loglevel, mtk.config.gui)
         self.gcpu = None
         self.config = mtk.config
         self.display = True
@@ -46,20 +48,26 @@ class META(metaclass=LogBase):
                 cdc.connected = cdc.connect()
                 if cdc.connected and cdc.pid == 0x2000:
                     counter += 1
-                    EP_OUT = cdc.EP_OUT.write
-                    EP_IN = cdc.EP_IN.read
+                    ep_out = cdc.EP_OUT.write
+                    ep_in = cdc.EP_IN.read
                     maxinsize = cdc.EP_IN.wMaxPacketSize
                     while True:
-                        resp=b""
                         try:
-                            resp = bytearray(EP_IN(maxinsize))
-                        except Exception as err:
+                            resp = bytearray(ep_in(maxinsize))
+                        except Exception:
                             break
-                        if resp==b"READY":
-                            EP_OUT(metamode, len(metamode))
-                            while resp==b"READY":
-                                resp = bytearray(EP_IN(maxinsize))
-                            if resp in [b"ATEMEVDX",b"TOOBTSAF",b"ATEMATEM",b"TCAFTCAF",b"MYROTCAF"]:
+                        if resp == b"READY":
+                            ep_out(metamode, len(metamode))
+                            while resp == b"READY":
+                                resp = bytearray(ep_in(maxinsize))
+                            if resp in [b"ATEMEVDX", b"TOOBTSAF", b"ATEMATEM", b"TCAFTCAF", b"MYROTCAF"]:
+                                if resp == b"ATEMATEM":
+                                    ep_out(b"\x04\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\xC0")
+                                    ep_out(b"\x04\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\xC0")
+                                    ep_out(b"\x06\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\xC0\x00\x80\x00\x00")
+                                    # INFO =
+                                    ep_in(13)  # !READYATEM
+                                    ep_out(b"DISCONNECT")
                                 return True
                             self.warning(resp)
                 else:
@@ -68,7 +76,7 @@ class META(metaclass=LogBase):
                         cdc.connected = False
                     if loop == 5:
                         sys.stdout.write('\n')
-                        self.info("Hint:\n\nPower off the phone before connecting.\n" + \
+                        self.info("Hint:\n\nPower off the phone before connecting.\n" +
                                   "For preloader mode, don't press any hw button and connect usb.\n")
                         sys.stdout.write('\n')
                     if loop >= 10:

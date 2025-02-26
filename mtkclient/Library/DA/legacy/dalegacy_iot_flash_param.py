@@ -1,9 +1,10 @@
 from binascii import hexlify
-from mtkclient.Library.utils import structhelper
-from mtkclient.config.mtk_config import Mtk_Config
+from mtkclient.Library.utils import Structhelper
+from mtkclient.config.mtk_config import MtkConfig
 from struct import pack
 
-class configinfo_iot:
+
+class ConfigInfoIoT:
     m_int_sram_ret = None
     m_int_sram_size = None
     m_ext_ram_ret = None
@@ -12,7 +13,7 @@ class configinfo_iot:
     m_ext_ram_size = None
 
     def __init__(self, data):
-        sh = structhelper(data)
+        sh = Structhelper(data)
         self.m_int_sram_ret = sh.dword(True)
         self.m_int_sram_size = sh.dword(True)
         self.m_ext_ram_ret = sh.dword(True)
@@ -32,7 +33,8 @@ class configinfo_iot:
         res += f"sf_candidate = {self.sf_candidate.hex()}\n"
         return res
 
-class emmcinfo_iot:
+
+class EmmcInfoIoT:
     m_emmc_ret = None
     m_emmc_boot1_size = None
     m_emmc_boot2_size = None
@@ -42,10 +44,10 @@ class emmcinfo_iot:
     m_emmc_cid = None
     m_emmc_fwver = None
 
-    def __init__(self, config: Mtk_Config, data=None):
+    def __init__(self, config: MtkConfig, data=None):
         if data is None:
             return
-        sh = structhelper(data)
+        sh = Structhelper(data)
         self.config = config
         self.m_emmc_ret = sh.dword(True)
         self.m_emmc_manufacturer_id = sh.bytes()
@@ -72,7 +74,8 @@ class emmcinfo_iot:
         res += f"m_emmc_ua_size = {hex(self.m_emmc_ua_size)}\n"
         return res
 
-class nandinfo_iot:
+
+class NandInfoIoT:
     m_nand_info = None
     m_nand_chip_select = None
     m_nand_flash_id = None
@@ -83,7 +86,7 @@ class nandinfo_iot:
     def __init__(self, data=None):
         if data is None:
             return
-        sh = structhelper(data)
+        sh = Structhelper(data)
         self.m_nand_info = sh.dword(True)
         self.m_nand_chip_select = sh.bytes()
         self.m_nand_flash_id = sh.short(True)
@@ -117,7 +120,7 @@ class nandinfo_iot:
         return res
 
 
-class norinfo_iot:
+class NorInfoIoT:
     m_nor_ret = None
     m_nor_chip_select = None
     m_nor_flash_id = None
@@ -129,7 +132,7 @@ class norinfo_iot:
     def __init__(self, data=None):
         if data is None:
             return
-        sh = structhelper(data)
+        sh = Structhelper(data)
         self.m_nor_ret = sh.dword(True)
         self.m_nor_chip_select = sh.bytes(2)
         self.m_nor_flash_id = sh.short(True)
